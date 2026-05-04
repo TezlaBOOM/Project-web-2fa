@@ -18,6 +18,13 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
-        return view('Backend.dashboard');
+        $role = auth()->user()->role ?? 'none';
+        
+        $allowedRoles = ['admin', 'mod', 'user', 'none'];
+        if (!in_array($role, $allowedRoles)) {
+            $role = 'none';
+        }
+        
+        return view("Backend.{$role}.dashboard");
     })->name('dashboard');
 });
