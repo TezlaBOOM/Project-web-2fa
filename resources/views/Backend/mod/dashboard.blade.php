@@ -16,6 +16,9 @@
             <a href="#" class="nav-link">
                 Komentarze
             </a>
+            <a href="{{ route('settings') }}" class="nav-link">
+                Ustawienia
+            </a>
         </nav>
 
         <div class="mt-auto">

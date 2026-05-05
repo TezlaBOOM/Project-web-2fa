@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Frontend\RegisterController;
 use App\Http\Controllers\Frontend\LoginController;
+use App\Http\Controllers\Backend\SettingsController;
 
 Route::get('/', function () {
     return view('Frontend.login');
@@ -27,4 +28,7 @@ Route::middleware('auth')->group(function () {
         
         return view("Backend.{$role}.dashboard");
     })->name('dashboard');
+
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
+    Route::post('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
 });

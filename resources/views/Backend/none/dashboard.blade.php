@@ -11,6 +11,7 @@
             </div>
             
             <div class="header-actions">
+                <a href="{{ route('settings') }}" class="btn-primary" style="text-decoration: none; padding: 0.5rem 1rem; display: inline-block;">Ustawienia</a>
                 <div class="status-badge">
                     Konto oczekujące
                 </div>

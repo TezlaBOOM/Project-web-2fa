@@ -13,7 +13,7 @@
             <a href="#" class="nav-link">
                 Profil
             </a>
-            <a href="#" class="nav-link">
+            <a href="{{ route('settings') }}" class="nav-link">
                 Ustawienia
             </a>
         </nav>
