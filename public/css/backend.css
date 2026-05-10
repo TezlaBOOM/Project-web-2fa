@@ -316,3 +316,27 @@ body {
     color: var(--danger);
     border: 1px solid rgba(239, 68, 68, 0.2);
 }
+
+/* Add user button (green) — same style as .btn-logout */
+.btn-add-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    background: transparent;
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.btn-add-user:hover {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: var(--success);
+}
+

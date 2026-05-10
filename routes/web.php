@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Frontend\RegisterController;
 use App\Http\Controllers\Frontend\LoginController;
 use App\Http\Controllers\Backend\SettingsController;
+use App\Http\Controllers\Backend\UserController;
 
 Route::get('/', function () {
     return view('Frontend.login');
@@ -31,4 +32,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
+    Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+    Route::post('/users', [UserController::class, 'store'])->name('users.store');
 });

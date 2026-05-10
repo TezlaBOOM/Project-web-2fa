@@ -10,6 +10,9 @@
             <a href="{{ route('dashboard') }}" class="nav-link active">
                 Panel Główny
             </a>
+            <a href="{{ route('users.index') }}" class="nav-link">
+                Użytkownicy
+            </a>
             <a href="#" class="nav-link">
                 Zgłoszenia
             </a>
