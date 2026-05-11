@@ -106,7 +106,13 @@ class UserController extends Controller
 
         $user->name  = $validated['name'];
         $user->email = $validated['email'];
-        $user->role  = $validated['role'];
+
+        // Blokada: administrator nie może sam sobie odebrać uprawnień
+        if ($user->id === auth()->id()) {
+            $user->role = $user->getOriginal('role');
+        } else {
+            $user->role = $validated['role'];
+        }
 
         if (!empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);

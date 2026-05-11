@@ -101,13 +101,20 @@
                     <!-- Rola -->
                     <div class="form-group">
                         <label for="role" class="form-label">Rola <span style="color: var(--danger);">*</span></label>
-                        <select id="role" name="role" class="form-control @error('role') form-control-error @enderror">
+                        <select id="role" name="role" class="form-control @error('role') form-control-error @enderror"
+                            @if($user->id === auth()->id()) disabled @endif>
                             @foreach(['admin' => 'Administrator', 'mod' => 'Moderator', 'user' => 'Użytkownik', 'none' => 'Brak roli'] as $value => $label)
                                 <option value="{{ $value }}" {{ old('role', $user->role) === $value ? 'selected' : '' }}>
                                     {{ $label }}
                                 </option>
                             @endforeach
                         </select>
+                        @if($user->id === auth()->id())
+                            <input type="hidden" name="role" value="{{ $user->role }}">
+                            <p style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--warning, #f59e0b); display: flex; align-items: center; gap: 0.4rem;">
+                                <span>🔒</span> Nie możesz zmienić swojej własnej roli.
+                            </p>
+                        @endif
                         @error('role')
                             <p class="form-error-msg">{{ $message }}</p>
                         @enderror
