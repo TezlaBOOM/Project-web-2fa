@@ -2,29 +2,8 @@
 @section('title', 'Nowy użytkownik - Admin')
 
 @section('content')
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="logo">Moja Aplikacja</div>
-        
-        <nav>
-            <a href="{{ route('dashboard') }}" class="nav-link">
-                Panel Główny
-            </a>
-            <a href="{{ route('users.index') }}" class="nav-link active">
-                Użytkownicy
-            </a>
-            <a href="{{ route('settings') }}" class="nav-link">
-                Ustawienia
-            </a>
-        </nav>
+    @include('Backend.admin._sidebar')
 
-        <div class="mt-auto">
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="btn-logout">Wyloguj się</button>
-            </form>
-        </div>
-    </aside>
 
     <!-- Main Content -->
     <main class="main-content">
@@ -107,6 +86,24 @@
                             @endforeach
                         </select>
                         @error('role')
+                            <p class="form-error-msg">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Wydziały -->
+                    <div class="form-group">
+                        <label class="form-label">Wydziały</label>
+                        <div class="checkbox-list @error('departments') form-control-error @enderror" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; max-height: 200px; overflow-y: auto;">
+                            @foreach($departments as $dept)
+                                <label style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; cursor: pointer; color: var(--text-main);">
+                                    <input type="checkbox" name="departments[]" value="{{ $dept->ID_Departament }}" 
+                                        {{ in_array($dept->ID_Departament, old('departments', [])) ? 'checked' : '' }}
+                                        style="width: 1.1rem; height: 1.1rem; accent-color: var(--primary); cursor: pointer;">
+                                    <span>{{ $dept->Nazwa }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('departments')
                             <p class="form-error-msg">{{ $message }}</p>
                         @enderror
                     </div>

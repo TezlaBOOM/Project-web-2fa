@@ -2,29 +2,8 @@
 @section('title', 'Użytkownicy - Admin')
 
 @section('content')
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="logo">Moja Aplikacja</div>
-        
-        <nav>
-            <a href="{{ route('dashboard') }}" class="nav-link">
-                Panel Główny
-            </a>
-            <a href="{{ route('users.index') }}" class="nav-link active">
-                Użytkownicy
-            </a>
-            <a href="{{ route('settings') }}" class="nav-link">
-                Ustawienia
-            </a>
-        </nav>
+    @include('Backend.admin._sidebar')
 
-        <div class="mt-auto">
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="btn-logout">Wyloguj się</button>
-            </form>
-        </div>
-    </aside>
 
     <!-- Main Content -->
     <main class="main-content">
@@ -60,6 +39,7 @@
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">ID</th>
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Nazwa</th>
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Email</th>
+                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Wydział</th>
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Rola</th>
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Zarejestrowano</th>
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted); text-align: right;">Akcje</th>
@@ -74,6 +54,19 @@
                                     <td style="padding: 1rem; color: var(--text-main); font-weight: 500;">{{ $user->name }}</td>
                                     <td style="padding: 1rem; color: var(--text-muted);">{{ $user->email }}</td>
                                     <td style="padding: 1rem;">
+                                        @if($user->departments->count() > 0)
+                                            <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+                                                @foreach($user->departments as $dept)
+                                                    <span title="{{ $dept->Nazwa }}" style="background: rgba(16, 185, 129, 0.1); color: var(--success); padding: 0.2rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                        {{ $dept->Nazwa }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <span style="color: var(--text-muted); font-size: 0.875rem;">—</span>
+                                        @endif
+                                    </td>
+                                    <td style="padding: 1rem;">
                                         <span style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">
                                             {{ ucfirst($user->role ?? 'Brak') }}
                                         </span>
@@ -87,7 +80,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">Brak użytkowników do wyświetlenia.</td>
+                                    <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">Brak użytkowników do wyświetlenia.</td>
                                 </tr>
                             @endforelse
                         </tbody>

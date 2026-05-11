@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Departament;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -17,7 +18,7 @@ class UserController extends Controller
             abort(403, 'Brak dostępu.');
         }
 
-        $users = User::all();
+        $users = User::with('departments')->get();
         
         return view("Backend.{$role}.users.index", compact('users'));
     }
@@ -30,7 +31,9 @@ class UserController extends Controller
             abort(403, 'Brak dostępu.');
         }
 
-        return view('Backend.admin.users.create');
+        $departments = Departament::orderBy('Nazwa')->get();
+
+        return view('Backend.admin.users.create', compact('departments'));
     }
 
     public function store(Request $request)
@@ -42,10 +45,12 @@ class UserController extends Controller
         }
 
         $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
-            'role'     => 'required|in:admin,mod,user,none',
+            'name'        => 'required|string|max:255',
+            'email'       => 'required|email|unique:users,email',
+            'password'    => 'required|string|min:8|confirmed',
+            'role'        => 'required|in:admin,mod,user,none',
+            'departments' => 'nullable|array',
+            'departments.*' => 'exists:Departament,ID_Departament',
         ], [
             'name.required'      => 'Imię i nazwisko jest wymagane.',
             'email.required'     => 'Adres e-mail jest wymagany.',
@@ -58,12 +63,16 @@ class UserController extends Controller
             'role.in'            => 'Wybierz prawidłową rolę.',
         ]);
 
-        User::create([
+        $user = User::create([
             'name'     => $validated['name'],
             'email'    => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role'     => $validated['role'],
         ]);
+
+        if (!empty($validated['departments'])) {
+            $user->departments()->attach($validated['departments']);
+        }
 
         return redirect()->route('users.index')
             ->with('success', 'Użytkownik został pomyślnie utworzony.');
@@ -77,7 +86,9 @@ class UserController extends Controller
             abort(403, 'Brak dostępu.');
         }
 
-        return view('Backend.admin.users.edit', compact('user'));
+        $departments = Departament::orderBy('Nazwa')->get();
+
+        return view('Backend.admin.users.edit', compact('user', 'departments'));
     }
 
     public function update(Request $request, User $user)
@@ -89,10 +100,12 @@ class UserController extends Controller
         }
 
         $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email,' . $user->id,
-            'role'     => 'required|in:admin,mod,user,none',
-            'password' => 'nullable|string|min:8|confirmed',
+            'name'        => 'required|string|max:255',
+            'email'       => 'required|email|unique:users,email,' . $user->id,
+            'role'        => 'required|in:admin,mod,user,none',
+            'password'    => 'nullable|string|min:8|confirmed',
+            'departments' => 'nullable|array',
+            'departments.*' => 'exists:Departament,ID_Departament',
         ], [
             'name.required'      => 'Imię i nazwisko jest wymagane.',
             'email.required'     => 'Adres e-mail jest wymagany.',
@@ -113,6 +126,12 @@ class UserController extends Controller
         }
 
         $user->save();
+
+        if (isset($validated['departments'])) {
+            $user->departments()->sync($validated['departments']);
+        } else {
+            $user->departments()->detach();
+        }
 
         return redirect()->route('users.index')
             ->with('success', 'Dane użytkownika zostały zaktualizowane.');

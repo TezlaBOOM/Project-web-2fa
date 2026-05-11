@@ -5,6 +5,7 @@ use App\Http\Controllers\Frontend\RegisterController;
 use App\Http\Controllers\Frontend\LoginController;
 use App\Http\Controllers\Backend\SettingsController;
 use App\Http\Controllers\Backend\UserController;
+use App\Http\Controllers\Backend\DepartmentController;
 
 Route::get('/', function () {
     return view('Frontend.login');
@@ -37,4 +38,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/users', [UserController::class, 'store'])->name('users.store');
     Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+
+    // Departments (Wydziały)
+    Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
+    Route::get('/departments/create', [DepartmentController::class, 'create'])->name('departments.create');
+    Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
+    Route::get('/departments/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit');
+    Route::put('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
+    Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
 });

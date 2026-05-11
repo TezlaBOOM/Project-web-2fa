@@ -2,29 +2,8 @@
 @section('title', 'Panel Główny - Admin')
 
 @section('content')
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="logo">Moja Aplikacja</div>
-        
-        <nav>
-            <a href="{{ route('dashboard') }}" class="nav-link active">
-                Panel Główny
-            </a>
-            <a href="{{ route('users.index') }}" class="nav-link">
-                Użytkownicy
-            </a>
-            <a href="{{ route('settings') }}" class="nav-link">
-                Ustawienia
-            </a>
-        </nav>
+    @include('Backend.admin._sidebar')
 
-        <div class="mt-auto">
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="btn-logout">Wyloguj się</button>
-            </form>
-        </div>
-    </aside>
 
     <!-- Main Content -->
     <main class="main-content">

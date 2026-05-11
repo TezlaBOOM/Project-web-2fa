@@ -362,4 +362,104 @@ body {
     border-color: var(--primary);
 }
 
+/* Table danger action (e.g. Delete) */
+.btn-table-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.85rem;
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.btn-table-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: var(--danger);
+}
+
+/* Nav group (collapsible submenu) */
+.nav-group {
+    margin-bottom: 0.25rem;
+}
+
+.nav-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    color: var(--text-muted);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    user-select: none;
+}
+
+.nav-group-header:hover,
+.nav-group-header.active {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+}
+
+.nav-group-arrow {
+    font-size: 0.65rem;
+    transition: transform 0.25s ease;
+    opacity: 0.6;
+}
+
+.nav-group.open .nav-group-arrow {
+    transform: rotate(180deg);
+}
+
+.nav-submenu {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease;
+}
+
+.nav-group.open .nav-submenu {
+    max-height: 300px;
+}
+
+.nav-submenu-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem 0.625rem 2rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-radius: 10px;
+    margin-bottom: 0.15rem;
+    transition: all 0.25s ease;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.nav-submenu-link::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.4;
+    flex-shrink: 0;
+}
+
+.nav-submenu-link:hover,
+.nav-submenu-link.active {
+    background: rgba(99, 102, 241, 0.08);
+    color: var(--primary);
+}
+
+.nav-submenu-link.active::before {
+    opacity: 1;
+}
 

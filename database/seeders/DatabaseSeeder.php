@@ -38,5 +38,9 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('user'),
             'role' => 'user',
         ]);
+
+        $this->call([
+            DepartamentSeeder::class,
+        ]);
     }
 }
