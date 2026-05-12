@@ -29,11 +29,24 @@
 
 
 
-        {{-- Ustawienia --}}
-        <a href="{{ route('settings') }}"
-           class="nav-link {{ request()->routeIs('settings') ? 'active' : '' }}">
-            Ustawienia
-        </a>
+        {{-- Ustawienia (podmenu) --}}
+        <div class="nav-group {{ request()->routeIs('settings*') ? 'open' : '' }}" id="nav-group-settings">
+            <div class="nav-group-header {{ request()->routeIs('settings*') ? 'active' : '' }}"
+                 onclick="toggleNavGroup('nav-group-settings')">
+                <span>Ustawienia</span>
+                <span class="nav-group-arrow">▼</span>
+            </div>
+            <div class="nav-submenu">
+                <a href="{{ route('settings') }}"
+                   class="nav-submenu-link {{ request()->routeIs('settings') ? 'active' : '' }}">
+                    Zmiana hasła
+                </a>
+                <a href="{{ route('settings.logon') }}"
+                   class="nav-submenu-link {{ request()->routeIs('settings.logon') ? 'active' : '' }}">
+                    Logowanie
+                </a>
+            </div>
+        </div>
     </nav>
 
     <div class="mt-auto">

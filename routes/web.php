@@ -33,6 +33,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
+    Route::get('/settings/logon', [SettingsController::class, 'logon'])->name('settings.logon');
+    Route::post('/settings/logon', [SettingsController::class, 'updateLogon'])->name('settings.logon.update');
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
     Route::post('/users', [UserController::class, 'store'])->name('users.store');

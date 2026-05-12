@@ -40,4 +40,53 @@ class SettingsController extends Controller
 
         return back()->with('success', 'Hasło zostało pomyślnie zmienione.');
     }
+
+    public function logon()
+    {
+        $role = auth()->user()->role ?? 'none';
+        
+        if ($role !== 'admin') {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $settings = \App\Models\Setting::pluck('value', 'key')->toArray();
+
+        return view('Backend.admin.settings.logon', compact('settings'));
+    }
+
+    public function updateLogon(Request $request)
+    {
+        $role = auth()->user()->role ?? 'none';
+        
+        if ($role !== 'admin') {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'min_password_length' => 'required|integer|min:4',
+            'max_password_length' => 'required|integer|gte:min_password_length',
+            'require_special_character' => 'nullable|boolean',
+            'enable_2fa' => 'nullable|boolean',
+            'smtp_host' => 'nullable|string',
+            'smtp_port' => 'nullable|string',
+            'smtp_username' => 'nullable|string',
+            'smtp_password' => 'nullable|string',
+            'smtp_encryption' => 'nullable|string',
+            'smtp_from_address' => 'nullable|email',
+            'smtp_from_name' => 'nullable|string',
+        ]);
+
+        // Convert checkboxes to boolean values (0 or 1)
+        $validated['require_special_character'] = $request->has('require_special_character') ? 1 : 0;
+        $validated['enable_2fa'] = $request->has('enable_2fa') ? 1 : 0;
+
+        foreach ($validated as $key => $value) {
+            \App\Models\Setting::updateOrCreate(
+                ['key' => $key],
+                ['value' => $value]
+            );
+        }
+
+        return back()->with('success', 'Ustawienia logowania i 2FA zostały zaktualizowane.');
+    }
 }
