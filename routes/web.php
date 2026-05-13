@@ -17,6 +17,8 @@ Route::get('/register', function () {
 
 Route::post('/register', [RegisterController::class, 'store']);
 Route::post('/login', [LoginController::class, 'authenticate'])->name('login.post');
+Route::get('/login/2fa', [LoginController::class, 'show2faForm'])->name('login.2fa');
+Route::post('/login/2fa', [LoginController::class, 'verify2fa'])->name('login.2fa.verify');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::middleware('auth')->group(function () {
@@ -33,6 +35,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
+    Route::post('/settings/2fa', [SettingsController::class, 'toggle2fa'])->name('settings.2fa.toggle');
     Route::get('/settings/logon', [SettingsController::class, 'logon'])->name('settings.logon');
     Route::post('/settings/logon', [SettingsController::class, 'updateLogon'])->name('settings.logon.update');
     Route::get('/users', [UserController::class, 'index'])->name('users.index');

@@ -41,6 +41,16 @@ class SettingsController extends Controller
         return back()->with('success', 'Hasło zostało pomyślnie zmienione.');
     }
 
+    public function toggle2fa(Request $request)
+    {
+        $user = Auth::user();
+        $user->two_factor_enabled = $request->has('two_factor_enabled');
+        $user->save();
+
+        $status = $user->two_factor_enabled ? 'włączone' : 'wyłączone';
+        return back()->with('success', "Uwierzytelnianie dwuskładnikowe zostało $status.");
+    }
+
     public function logon()
     {
         $role = auth()->user()->role ?? 'none';
@@ -74,6 +84,7 @@ class SettingsController extends Controller
             'smtp_encryption' => 'nullable|string',
             'smtp_from_address' => 'nullable|email',
             'smtp_from_name' => 'nullable|string',
+            'two_factor_expiration_time' => 'nullable|integer|min:1',
         ]);
 
         // Convert checkboxes to boolean values (0 or 1)

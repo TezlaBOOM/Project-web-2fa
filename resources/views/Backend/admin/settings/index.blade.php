@@ -56,5 +56,24 @@
                 </form>
             </div>
         </div>
+
+        <div class="card" style="margin-top: 2rem;">
+            <div class="card-header">
+                Uwierzytelnianie Dwuskładnikowe (2FA)
+            </div>
+            <div class="card-body" style="padding: 1.5rem;">
+                <p style="margin-bottom: 1.5rem; color: var(--text-muted);">
+                    Zabezpiecz swoje konto dodatkowym kodem wysyłanym na e-mail podczas logowania.
+                </p>
+
+                <form action="{{ route('settings.2fa.toggle') }}" method="POST">
+                    @csrf
+                    <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+                        <input type="checkbox" name="two_factor_enabled" id="two_factor_enabled" value="1" {{ auth()->user()->two_factor_enabled ? 'checked' : '' }} onChange="this.form.submit()">
+                        <label for="two_factor_enabled" style="margin-bottom: 0; font-weight: 600;">Włącz weryfikację dwuetapową (2FA)</label>
+                    </div>
+                </form>
+            </div>
+        </div>
     </main>
 @endsection

@@ -62,6 +62,11 @@
                         <label for="enable_2fa" style="margin-bottom: 0; font-weight: 600; color: var(--primary);">Aktywuj 2FA (wysyłanie tokenów e-mail)</label>
                     </div>
 
+                    <div class="form-group">
+                        <label for="two_factor_expiration_time" class="form-label">Czas ważności tokenu 2FA (w minutach)</label>
+                        <input type="number" name="two_factor_expiration_time" id="two_factor_expiration_time" class="form-control" value="{{ old('two_factor_expiration_time', $settings['two_factor_expiration_time'] ?? 5) }}" required min="1">
+                    </div>
+
                     <h3 style="margin-bottom: 1rem; margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">Konfiguracja Serwera SMTP (dla 2FA)</h3>
 
                     <div class="form-group">
