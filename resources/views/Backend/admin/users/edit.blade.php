@@ -117,6 +117,16 @@
                         @enderror
                     </div>
 
+                    <!-- 2FA (Uwierzytelnianie dwuetapowe) -->
+                    <div class="form-group" style="margin-top: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="two_factor_enabled" id="two_factor_enabled" value="1" 
+                            {{ old('two_factor_enabled', $user->two_factor_enabled) ? 'checked' : '' }}
+                            style="width: 1.1rem; height: 1.1rem; accent-color: var(--primary); cursor: pointer;">
+                        <label for="two_factor_enabled" style="margin-bottom: 0; cursor: pointer; color: var(--text-main); font-weight: 500;">
+                            Włącz uwierzytelnianie dwuetapowe (2FA) dla tego użytkownika
+                        </label>
+                    </div>
+
                     <!-- Divider -->
                     <div style="border-top: 1px solid var(--border); margin: 1.75rem 0 1.5rem; position: relative;">
                         <span style="position: absolute; top: -0.65rem; left: 0; background: var(--surface); padding-right: 0.75rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">

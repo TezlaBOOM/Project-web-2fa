@@ -57,9 +57,14 @@
 
                     <h3 style="margin-bottom: 1rem; margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">Uwierzytelnianie Dwuskładnikowe (2FA)</h3>
                     
-                    <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+                    <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.0rem;">
                         <input type="checkbox" name="enable_2fa" id="enable_2fa" value="1" {{ old('enable_2fa', $settings['enable_2fa'] ?? 0) ? 'checked' : '' }}>
-                        <label for="enable_2fa" style="margin-bottom: 0; font-weight: 600; color: var(--primary);">Aktywuj 2FA (wysyłanie tokenów e-mail)</label>
+                        <label for="enable_2fa" style="margin-bottom: 0; font-weight: 600; color: var(--primary);">Zezwól na aktywację 2FA (pozwala użytkownikom na włączenie 2FA w zakładce zmiany hasła)</label>
+                    </div>
+
+                    <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+                        <input type="checkbox" name="force_2fa_mod_user" id="force_2fa_mod_user" value="1" {{ old('force_2fa_mod_user', $settings['force_2fa_mod_user'] ?? 0) ? 'checked' : '' }}>
+                        <label for="force_2fa_mod_user" style="margin-bottom: 0; font-weight: 600; color: var(--primary);">Wymuś automatyczną aktywację 2FA na kontach Moderatorów i Użytkowników</label>
                     </div>
 
                     <div class="form-group">

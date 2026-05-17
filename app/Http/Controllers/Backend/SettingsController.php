@@ -17,8 +17,9 @@ class SettingsController extends Controller
         if (!in_array($role, $allowedRoles)) {
             $role = 'none';
         }
+        $settings = \App\Models\Setting::pluck('value', 'key')->toArray();
         
-        return view("Backend.{$role}.settings.index");
+        return view("Backend.{$role}.settings.index", compact('settings'));
     }
 
     public function updatePassword(Request $request)
@@ -44,6 +45,13 @@ class SettingsController extends Controller
     public function toggle2fa(Request $request)
     {
         $user = Auth::user();
+        $settings = \App\Models\Setting::pluck('value', 'key')->toArray();
+        $force2fa = isset($settings['force_2fa_mod_user']) ? (bool) $settings['force_2fa_mod_user'] : false;
+        
+        if ($force2fa && in_array($user->role, ['mod', 'user'])) {
+            return back()->withErrors(['Uwierzytelnianie dwuskładnikowe jest wymuszone przez administratora i nie może zostać wyłączone.']);
+        }
+
         $user->two_factor_enabled = $request->has('two_factor_enabled');
         $user->save();
 
@@ -77,6 +85,7 @@ class SettingsController extends Controller
             'max_password_length' => 'required|integer|gte:min_password_length',
             'require_special_character' => 'nullable|boolean',
             'enable_2fa' => 'nullable|boolean',
+            'force_2fa_mod_user' => 'nullable|boolean',
             'smtp_host' => 'nullable|string',
             'smtp_port' => 'nullable|string',
             'smtp_username' => 'nullable|string',
@@ -90,12 +99,18 @@ class SettingsController extends Controller
         // Convert checkboxes to boolean values (0 or 1)
         $validated['require_special_character'] = $request->has('require_special_character') ? 1 : 0;
         $validated['enable_2fa'] = $request->has('enable_2fa') ? 1 : 0;
+        $validated['force_2fa_mod_user'] = $request->has('force_2fa_mod_user') ? 1 : 0;
 
         foreach ($validated as $key => $value) {
             \App\Models\Setting::updateOrCreate(
                 ['key' => $key],
                 ['value' => $value]
             );
+        }
+
+        // Jeśli opcja wymuszenia 2FA jest włączona, zaktualizuj wszystkich modów i userów w bazie
+        if ($validated['force_2fa_mod_user']) {
+            \App\Models\User::whereIn('role', ['mod', 'user'])->update(['two_factor_enabled' => 1]);
         }
 
         return back()->with('success', 'Ustawienia logowania i 2FA zostały zaktualizowane.');

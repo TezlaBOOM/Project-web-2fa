@@ -79,6 +79,7 @@
             </div>
         </div>
 
+        @if($settings['enable_2fa'] ?? false)
         <div class="card" style="margin-top: 2rem;">
             <div class="card-header">
                 Uwierzytelnianie Dwuskładnikowe (2FA)
@@ -90,12 +91,23 @@
 
                 <form action="{{ route('settings.2fa.toggle') }}" method="POST">
                     @csrf
+                    @php
+                        $isForced = ($settings['force_2fa_mod_user'] ?? false) && in_array(auth()->user()->role, ['mod', 'user']);
+                    @endphp
                     <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
-                        <input type="checkbox" name="two_factor_enabled" id="two_factor_enabled" value="1" {{ auth()->user()->two_factor_enabled ? 'checked' : '' }} onChange="this.form.submit()">
+                        <input type="checkbox" name="two_factor_enabled" id="two_factor_enabled" value="1" 
+                            {{ (auth()->user()->two_factor_enabled || $isForced) ? 'checked' : '' }} 
+                            @if($isForced) disabled @else onchange="this.form.submit()" @endif>
                         <label for="two_factor_enabled" style="margin-bottom: 0; font-weight: 600;">Włącz weryfikację dwuetapową (2FA)</label>
                     </div>
+                    @if($isForced)
+                        <p style="font-size: 0.85rem; color: var(--warning, #f59e0b); display: flex; align-items: center; gap: 0.4rem;">
+                            <span>🔒</span> Administrator wymusił dwuetapową weryfikację dla Twojego konta.
+                        </p>
+                    @endif
                 </form>
             </div>
         </div>
+        @endif
     </main>
 @endsection

@@ -28,8 +28,11 @@ class LoginController extends Controller
 
             $settings = Setting::pluck('value', 'key')->toArray();
             $global2faEnabled = isset($settings['enable_2fa']) ? (bool) $settings['enable_2fa'] : false;
+            $force2fa = isset($settings['force_2fa_mod_user']) ? (bool) $settings['force_2fa_mod_user'] : false;
 
-            if ($global2faEnabled && $user->two_factor_enabled) {
+            $isUserForced = $force2fa && in_array($user->role, ['mod', 'user']);
+
+            if ($global2faEnabled && ($user->two_factor_enabled || $isUserForced)) {
                 // Generate 2FA code
                 $code = rand(100000, 999999);
                 $expirationTime = isset($settings['two_factor_expiration_time']) ? (int) $settings['two_factor_expiration_time'] : 5;

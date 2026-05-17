@@ -106,6 +106,7 @@ class UserController extends Controller
             'password'    => 'nullable|string|min:8|confirmed',
             'departments' => 'nullable|array',
             'departments.*' => 'exists:Departament,ID_Departament',
+            'two_factor_enabled' => 'nullable|boolean',
         ], [
             'name.required'      => 'Imię i nazwisko jest wymagane.',
             'email.required'     => 'Adres e-mail jest wymagany.',
@@ -130,6 +131,8 @@ class UserController extends Controller
         if (!empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
         }
+
+        $user->two_factor_enabled = $request->has('two_factor_enabled');
 
         $user->save();
 

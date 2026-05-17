@@ -57,6 +57,7 @@
             </div>
         </div>
 
+        @if($settings['enable_2fa'] ?? false)
         <div class="card" style="margin-top: 2rem;">
             <div class="card-header">
                 Uwierzytelnianie Dwuskładnikowe (2FA)
@@ -75,5 +76,6 @@
                 </form>
             </div>
         </div>
+        @endif
     </main>
 @endsection
