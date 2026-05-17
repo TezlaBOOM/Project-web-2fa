@@ -21,7 +21,7 @@
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-title">Zarejestrowani Użytkownicy</div>
-                <div class="stat-value">124</div>
+                <div class="stat-value">{{ $usersCount ?? 0 }}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-title">Status Serwera</div>
@@ -37,15 +37,41 @@
             <div class="card-header">
                 Ostatnia Aktywność Systemu
             </div>
-            <div class="activity-list">
-                <div class="activity-item">
-                    <div class="activity-icon">✓</div>
-                    <div class="activity-details">
-                        <h4>Nowy użytkownik zarejestrowany</h4>
-                        <p>Jan Kowalski dołączył do platformy</p>
+            <div class="activity-list" style="padding: 1rem; overflow-x: auto;">
+                @if($activities && $activities->count() > 0)
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 1rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); text-align: left; color: var(--text-muted); font-size: 0.85rem;">
+                                <th style="padding: 0.75rem;">Data</th>
+                                <th style="padding: 0.75rem;">Użytkownik</th>
+                                <th style="padding: 0.75rem;">Adres IP</th>
+                                <th style="padding: 0.75rem;">Akcja / Opis</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($activities as $activity)
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 0.75rem; font-size: 0.85rem; color: var(--text-muted); white-space: nowrap;">{{ $activity->created_at->format('Y-m-d H:i') }}</td>
+                                    <td style="padding: 0.75rem; font-weight: 500;">
+                                        {{ $activity->user ? $activity->user->name : 'Gość / System' }}
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ $activity->user ? $activity->user->email : '' }}</div>
+                                    </td>
+                                    <td style="padding: 0.75rem; font-size: 0.85rem; color: var(--text-muted);">{{ $activity->ip_address ?? 'Brak' }}</td>
+                                    <td style="padding: 0.75rem;">
+                                        <div style="font-size: 0.85rem; color: var(--primary); font-weight: 600;">{{ $activity->action }}</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-main);">{{ $activity->description }}</div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                    
+                    <div style="margin-top: 1rem;">
+                        {{ $activities->links() }}
                     </div>
-                    <div class="activity-time">5 minut temu</div>
-                </div>
+                @else
+                    <p style="text-align: center; color: var(--text-muted); padding: 2rem 0;">Brak zarejestrowanej aktywności.</p>
+                @endif
             </div>
         </div>
     </main>

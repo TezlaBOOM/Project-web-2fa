@@ -27,7 +27,32 @@
             </div>
         </div>
 
-
+        @if(auth()->user()->role === 'admin' || auth()->user()->role === 'mod')
+            {{-- Uprawnienia (podmenu) --}}
+            <div class="nav-group {{ request()->routeIs('modules.*') || request()->routeIs('operations.*') || request()->routeIs('access.*') ? 'open' : '' }}" id="nav-group-permissions">
+                <div class="nav-group-header {{ request()->routeIs('modules.*') || request()->routeIs('operations.*') || request()->routeIs('access.*') ? 'active' : '' }}"
+                     onclick="toggleNavGroup('nav-group-permissions')">
+                    <span>Uprawnienia</span>
+                    <span class="nav-group-arrow">▼</span>
+                </div>
+                <div class="nav-submenu">
+                    @if(auth()->user()->role === 'admin')
+                        <a href="{{ route('modules.index') }}"
+                           class="nav-submenu-link {{ request()->routeIs('modules.*') ? 'active' : '' }}">
+                            Moduły
+                        </a>
+                        <a href="{{ route('operations.index') }}"
+                           class="nav-submenu-link {{ request()->routeIs('operations.*') ? 'active' : '' }}">
+                            Operacje
+                        </a>
+                    @endif
+                    <a href="{{ route('access.index') }}"
+                       class="nav-submenu-link {{ request()->routeIs('access.*') ? 'active' : '' }}">
+                        Dostęp
+                    </a>
+                </div>
+            </div>
+        @endif
 
         {{-- Ustawienia (podmenu) --}}
         <div class="nav-group {{ request()->routeIs('settings*') ? 'open' : '' }}" id="nav-group-settings">

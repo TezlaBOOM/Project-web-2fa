@@ -6,6 +6,9 @@ use App\Http\Controllers\Frontend\LoginController;
 use App\Http\Controllers\Backend\SettingsController;
 use App\Http\Controllers\Backend\UserController;
 use App\Http\Controllers\Backend\DepartmentController;
+use App\Http\Controllers\Backend\PModulController;
+use App\Http\Controllers\Backend\POperacjeController;
+use App\Http\Controllers\Backend\PAccessController;
 
 Route::get('/', function () {
     return view('Frontend.login');
@@ -23,14 +26,32 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
-        $role = auth()->user()->role ?? 'none';
+        $user = auth()->user();
+        $role = $user->role ?? 'none';
         
         $allowedRoles = ['admin', 'mod', 'user', 'none'];
         if (!in_array($role, $allowedRoles)) {
             $role = 'none';
         }
         
-        return view("Backend.{$role}.dashboard");
+        $usersCount = 0;
+        $activities = null;
+        $accesses = null;
+        if ($role === 'admin') {
+            $usersCount = \App\Models\User::count();
+            $activities = \App\Models\UserActivity::with('user')->latest()->paginate(10);
+        } elseif ($role === 'mod') {
+            $departmentIds = $user->departments->pluck('ID_Departament');
+            if ($departmentIds->isNotEmpty()) {
+                $usersCount = \App\Models\User::whereHas('departments', function ($q) use ($departmentIds) {
+                    $q->whereIn('Departament.ID_Departament', $departmentIds);
+                })->count();
+            }
+        } elseif ($role === 'user') {
+            $accesses = \App\Models\PAccess::with(['modul', 'operacja'])->where('user_id', $user->id)->get();
+        }
+        
+        return view("Backend.{$role}.dashboard", compact('usersCount', 'activities', 'accesses'));
     })->name('dashboard');
 
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
@@ -51,4 +72,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/departments/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit');
     Route::put('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
     Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
+
+    // Uprawnienia (Permissions)
+    Route::resource('/permissions/modules', PModulController::class)->except(['show']);
+    Route::resource('/permissions/operations', POperacjeController::class)->except(['show']);
+    Route::resource('/permissions/access', PAccessController::class)->except(['show']);
 });

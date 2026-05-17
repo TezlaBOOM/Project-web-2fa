@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Config;
 use App\Mail\TwoFactorCodeMail;
 use App\Models\Setting;
 use App\Models\User;
+use App\Models\UserActivity;
 
 class LoginController extends Controller
 {
@@ -25,6 +26,13 @@ class LoginController extends Controller
 
         if (Auth::validate($credentials)) {
             $user = Auth::getProvider()->retrieveByCredentials($credentials);
+
+            if (!$user->is_active) {
+                UserActivity::log('login_failed', "Próba logowania na zablokowane konto: {$user->email}");
+                return back()->withErrors([
+                    'email' => 'Twoje konto zostało zdezaktywowane. Skontaktuj się z administratorem.',
+                ])->onlyInput('email');
+            }
 
             $settings = Setting::pluck('value', 'key')->toArray();
             $global2faEnabled = isset($settings['enable_2fa']) ? (bool) $settings['enable_2fa'] : false;
@@ -67,6 +75,8 @@ class LoginController extends Controller
 
             // Normal login if 2FA not enabled
             Auth::login($user);
+            UserActivity::log('login', 'Zalogowano do systemu (bez 2FA)');
+            
             $request->session()->regenerate();
             return redirect()->intended('/dashboard');
         }
@@ -124,6 +134,8 @@ class LoginController extends Controller
         $user->save();
 
         Auth::login($user);
+        UserActivity::log('login', 'Zalogowano do systemu (z użyciem 2FA)');
+        
         $request->session()->forget('2fa:user:id');
         $request->session()->regenerate();
 

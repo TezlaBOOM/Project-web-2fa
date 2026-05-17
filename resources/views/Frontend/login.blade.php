@@ -17,7 +17,7 @@
             <p>Zaloguj się, aby kontynuować</p>
         </div>
 
-        <form action="{{ route('login.post') }}" method="POST">
+        <form action="{{ route('login.post') }}" method="POST" onsubmit="this.querySelector('button[type=submit]').disabled = true;">
             @csrf
             <div class="form-group">
                 <label for="email">Adres E-mail</label>

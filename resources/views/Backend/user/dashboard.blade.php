@@ -54,19 +54,84 @@
             </div>
         </div>
 
+        <div class="card" style="margin-bottom: 2rem;">
+            <div class="card-header">
+                Twoje Uprawnienia (Moduły i Operacje)
+            </div>
+            <div class="activity-list" style="padding: 1rem; overflow-x: auto;">
+                @if(isset($accesses) && $accesses->count() > 0)
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); text-align: left; color: var(--text-muted); font-size: 0.85rem;">
+                                <th style="padding: 0.75rem;">Moduł</th>
+                                <th style="padding: 0.75rem;">Zagnieżdżenie</th>
+                                <th style="padding: 0.75rem;">Dozwolona Operacja</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($accesses as $access)
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 0.75rem; font-weight: 500;">
+                                        {{ $access->modul->nazwa ?? 'Brak' }}
+                                    </td>
+                                    <td style="padding: 0.75rem; color: var(--text-muted);">
+                                        {{ isset($access->modul) && $access->modul->pozycja > 0 ? 'Podkategoria (' . $access->modul->pozycja . ')' : 'Kategoria główna (0)' }}
+                                    </td>
+                                    <td style="padding: 0.75rem; color: var(--primary);">
+                                        {{ $access->operacja->nazwa ?? 'Brak' }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @else
+                    <p style="text-align: center; color: var(--text-muted); padding: 2rem 0;">Brak przypisanych uprawnień.</p>
+                @endif
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header">
-                Ostatnia Aktywność
+                Zmiana Hasła
             </div>
-            <div class="activity-list">
-                <div class="activity-item">
-                    <div class="activity-icon">✓</div>
-                    <div class="activity-details">
-                        <h4>Zalogowano do systemu</h4>
-                        <p>Pomyślne uwierzytelnienie w aplikacji</p>
+            <div style="padding: 2rem;">
+                @if(session('success'))
+                    <div class="alert alert-success" style="margin-bottom: 1.5rem;">
+                        {{ session('success') }}
                     </div>
-                    <div class="activity-time">Właśnie teraz</div>
-                </div>
+                @endif
+
+                @if($errors->any())
+                    <div class="alert alert-danger" style="margin-bottom: 1.5rem;">
+                        <ul style="margin: 0; padding-left: 1.25rem;">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                <form action="{{ route('settings.password') }}" method="POST">
+                    @csrf
+                    <div class="form-group">
+                        <label for="current_password" class="form-label">Obecne hasło</label>
+                        <input type="password" name="current_password" id="current_password" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_password" class="form-label">Nowe hasło</label>
+                        <input type="password" name="new_password" id="new_password" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_password_confirmation" class="form-label">Powtórz nowe hasło</label>
+                        <input type="password" name="new_password_confirmation" id="new_password_confirmation" class="form-control" required>
+                    </div>
+
+                    <div style="margin-top: 1.5rem;">
+                        <button type="submit" class="btn-primary">Zmień hasło</button>
+                    </div>
+                </form>
             </div>
         </div>
     </main>

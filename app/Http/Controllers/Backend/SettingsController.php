@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use App\Models\UserActivity;
 
 class SettingsController extends Controller
 {
@@ -39,6 +40,8 @@ class SettingsController extends Controller
             'password' => Hash::make($request->new_password)
         ]);
 
+        UserActivity::log('update_password', 'Zmieniono hasło do konta');
+
         return back()->with('success', 'Hasło zostało pomyślnie zmienione.');
     }
 
@@ -56,6 +59,7 @@ class SettingsController extends Controller
         $user->save();
 
         $status = $user->two_factor_enabled ? 'włączone' : 'wyłączone';
+        UserActivity::log('toggle_2fa', "Uwierzytelnianie dwuskładnikowe zostało $status");
         return back()->with('success', "Uwierzytelnianie dwuskładnikowe zostało $status.");
     }
 
@@ -94,6 +98,7 @@ class SettingsController extends Controller
             'smtp_from_address' => 'nullable|email',
             'smtp_from_name' => 'nullable|string',
             'two_factor_expiration_time' => 'nullable|integer|min:1',
+            'activity_log_retention_days' => 'nullable|integer|min:1',
         ]);
 
         // Convert checkboxes to boolean values (0 or 1)
@@ -112,6 +117,8 @@ class SettingsController extends Controller
         if ($validated['force_2fa_mod_user']) {
             \App\Models\User::whereIn('role', ['mod', 'user'])->update(['two_factor_enabled' => 1]);
         }
+
+        UserActivity::log('update_settings', 'Zaktualizowano ustawienia logowania i 2FA');
 
         return back()->with('success', 'Ustawienia logowania i 2FA zostały zaktualizowane.');
     }

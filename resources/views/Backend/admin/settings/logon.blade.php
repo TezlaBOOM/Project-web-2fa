@@ -109,6 +109,14 @@
                         <input type="text" name="smtp_from_name" id="smtp_from_name" class="form-control" value="{{ old('smtp_from_name', $settings['smtp_from_name'] ?? '') }}">
                     </div>
 
+                    <h3 style="margin-bottom: 1rem; margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">Logi Systemowe</h3>
+
+                    <div class="form-group">
+                        <label for="activity_log_retention_days" class="form-label">Czas przechowywania logów (w dniach)</label>
+                        <input type="number" name="activity_log_retention_days" id="activity_log_retention_days" class="form-control" value="{{ old('activity_log_retention_days', $settings['activity_log_retention_days'] ?? 14) }}" required min="1">
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Zalecana wartość to 14 dni.</p>
+                    </div>
+
                     <div style="margin-top: 2rem;">
                         <button type="submit" class="btn-primary">Zapisz ustawienia</button>
                     </div>

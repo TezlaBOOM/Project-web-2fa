@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Departament;
+use App\Models\UserActivity;
 
 class DepartmentController extends Controller
 {
@@ -50,6 +51,8 @@ class DepartmentController extends Controller
 
         Departament::create($validated);
 
+        UserActivity::log('create_department', "Utworzono wydział: {$validated['Nazwa']}");
+
         return redirect()->route('departments.index')
             ->with('success', 'Wydział został pomyślnie utworzony.');
     }
@@ -82,6 +85,8 @@ class DepartmentController extends Controller
         $department->Description = $validated['Description'] ?? null;
         $department->save();
 
+        UserActivity::log('update_department', "Zaktualizowano wydział: {$department->Nazwa}");
+
         return redirect()->route('departments.index')
             ->with('success', 'Dane wydziału zostały zaktualizowane.');
     }
@@ -103,7 +108,10 @@ class DepartmentController extends Controller
                 ->with('error', 'Nie można usunąć wydziału, ponieważ są do niego przypisani użytkownicy.');
         }
 
+        $departmentName = $department->Nazwa;
         $department->delete();
+
+        UserActivity::log('delete_department', "Usunięto wydział: {$departmentName}");
 
         return redirect()->route('departments.index')
             ->with('success', 'Wydział został usunięty.');

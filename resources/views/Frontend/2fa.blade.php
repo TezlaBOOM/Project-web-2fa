@@ -28,7 +28,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('login.2fa.verify') }}">
+        <form method="POST" action="{{ route('login.2fa.verify') }}" onsubmit="this.querySelector('button[type=submit]').disabled = true;">
             @csrf
             <div class="form-group">
                 <label for="two_factor_code">Kod weryfikacyjny</label>

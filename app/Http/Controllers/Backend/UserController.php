@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Departament;
+use App\Models\UserActivity;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -18,7 +19,14 @@ class UserController extends Controller
             abort(403, 'Brak dostępu.');
         }
 
-        $users = User::with('departments')->get();
+        if ($role === 'mod') {
+            $departmentIds = auth()->user()->departments->pluck('ID_Departament');
+            $users = User::with('departments')->whereHas('departments', function($q) use ($departmentIds) {
+                $q->whereIn('Departament.ID_Departament', $departmentIds);
+            })->get();
+        } else {
+            $users = User::with('departments')->get();
+        }
         
         return view("Backend.{$role}.users.index", compact('users'));
     }
@@ -74,6 +82,8 @@ class UserController extends Controller
             $user->departments()->attach($validated['departments']);
         }
 
+        UserActivity::log('create_user', "Utworzono użytkownika: {$user->email}");
+
         return redirect()->route('users.index')
             ->with('success', 'Użytkownik został pomyślnie utworzony.');
     }
@@ -107,6 +117,7 @@ class UserController extends Controller
             'departments' => 'nullable|array',
             'departments.*' => 'exists:Departament,ID_Departament',
             'two_factor_enabled' => 'nullable|boolean',
+            'is_active' => 'nullable|boolean',
         ], [
             'name.required'      => 'Imię i nazwisko jest wymagane.',
             'email.required'     => 'Adres e-mail jest wymagany.',
@@ -133,6 +144,10 @@ class UserController extends Controller
         }
 
         $user->two_factor_enabled = $request->has('two_factor_enabled');
+        
+        if ($user->id !== auth()->id()) {
+            $user->is_active = $request->has('is_active');
+        }
 
         $user->save();
 
@@ -141,6 +156,8 @@ class UserController extends Controller
         } else {
             $user->departments()->detach();
         }
+
+        UserActivity::log('update_user', "Zaktualizowano dane użytkownika: {$user->email}");
 
         return redirect()->route('users.index')
             ->with('success', 'Dane użytkownika zostały zaktualizowane.');

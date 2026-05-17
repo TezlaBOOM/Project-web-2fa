@@ -47,8 +47,8 @@
 
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-title">Otwarte Zgłoszenia</div>
-                <div class="stat-value">12</div>
+                <div class="stat-title">Zarejestrowani Użytkownicy</div>
+                <div class="stat-value">{{ $usersCount ?? 0 }}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-title">Rozpatrzone dzisiaj</div>

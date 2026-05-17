@@ -127,6 +127,20 @@
                         </label>
                     </div>
 
+                    <!-- Aktywność Konta -->
+                    <div class="form-group" style="margin-top: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="is_active" id="is_active" value="1" 
+                            {{ old('is_active', $user->is_active) ? 'checked' : '' }}
+                            @if($user->id === auth()->id()) disabled @endif
+                            style="width: 1.1rem; height: 1.1rem; accent-color: var(--primary); cursor: pointer;">
+                        <label for="is_active" style="margin-bottom: 0; cursor: pointer; color: var(--text-main); font-weight: 500;">
+                            Konto jest aktywne
+                        </label>
+                        @if($user->id === auth()->id())
+                            <input type="hidden" name="is_active" value="{{ $user->is_active }}">
+                        @endif
+                    </div>
+
                     <!-- Divider -->
                     <div style="border-top: 1px solid var(--border); margin: 1.75rem 0 1.5rem; position: relative;">
                         <span style="position: absolute; top: -0.65rem; left: 0; background: var(--surface); padding-right: 0.75rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">

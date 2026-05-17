@@ -11,7 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Models\Departament;
 
-#[Fillable(['name', 'email', 'password', 'role', 'two_factor_enabled', 'two_factor_code', 'two_factor_expires_at'])]
+#[Fillable(['name', 'email', 'password', 'role', 'two_factor_enabled', 'two_factor_code', 'two_factor_expires_at', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -29,11 +29,17 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_enabled' => 'boolean',
+            'is_active' => 'boolean',
         ];
     }
 
     public function departments()
     {
         return $this->belongsToMany(Departament::class, 'DepartamentUsers', 'ID_Users', 'ID_Departament');
+    }
+
+    public function activities()
+    {
+        return $this->hasMany(UserActivity::class);
     }
 }
