@@ -2,37 +2,8 @@
 @section('title', 'Panel Główny - Moderator')
 
 @section('content')
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="logo">Moja Aplikacja</div>
-        
-        <nav>
-            <a href="{{ route('dashboard') }}" class="nav-link active">
-                Panel Główny
-            </a>
-            <a href="{{ route('users.index') }}" class="nav-link">
-                Użytkownicy
-            </a>
-            <a href="#" class="nav-link">
-                Zgłoszenia
-            </a>
-            <a href="#" class="nav-link">
-                Komentarze
-            </a>
-            <a href="{{ route('settings') }}" class="nav-link">
-                Ustawienia
-            </a>
-        </nav>
+    @include('Backend.mod._sidebar')
 
-        <div class="mt-auto">
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="btn-logout">Wyloguj się</button>
-            </form>
-        </div>
-    </aside>
-
-    <!-- Main Content -->
     <main class="main-content">
         <div class="header-bar">
             <div class="user-greeting">

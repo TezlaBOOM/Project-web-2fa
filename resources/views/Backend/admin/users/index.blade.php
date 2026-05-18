@@ -24,6 +24,12 @@
             </div>
         @endif
 
+        @if(session('error'))
+            <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--danger); padding: 0.85rem 1.25rem; border-radius: 8px; margin-bottom: 1.25rem; font-size: 0.9rem;">
+                ⚠ {{ session('error') }}
+            </div>
+        @endif
+
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <span>Lista użytkowników</span>
@@ -72,10 +78,19 @@
                                         </span>
                                     </td>
                                     <td style="padding: 1rem; color: var(--text-muted); font-size: 0.875rem;">{{ $user->created_at->format('Y-m-d H:i') }}</td>
-                                    <td style="padding: 1rem; text-align: right;">
+                                    <td style="padding: 1rem; text-align: right; white-space: nowrap;">
                                         <a href="{{ route('users.edit', $user->id) }}" class="btn-table-action">
                                             ✎ Edytuj
                                         </a>
+                                        @if($user->id !== auth()->id())
+                                            <form action="{{ route('users.destroy', $user->id) }}" method="POST" style="display: inline-block; margin-left: 0.5rem;" onsubmit="return confirm('Czy na pewno usunąć użytkownika {{ addslashes($user->name) }}? Operacja jest nieodwracalna.')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" style="background: none; border: 1px solid var(--danger); color: var(--danger); cursor: pointer; font-size: 0.78rem; padding: 0.3rem 0.65rem; border-radius: 5px; transition: background 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='none'">
+                                                    🗑 Usuń
+                                                </button>
+                                            </form>
+                                        @endif
                                     </td>
                                 </tr>
                             @empty

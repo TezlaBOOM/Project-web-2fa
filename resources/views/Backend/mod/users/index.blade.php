@@ -2,44 +2,14 @@
 @section('title', 'Użytkownicy - Moderator')
 
 @section('content')
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="logo">Moja Aplikacja</div>
-        
-        <nav>
-            <a href="{{ route('dashboard') }}" class="nav-link">
-                Panel Główny
-            </a>
-            <a href="{{ route('users.index') }}" class="nav-link active">
-                Użytkownicy
-            </a>
-            <a href="#" class="nav-link">
-                Zgłoszenia
-            </a>
-            <a href="#" class="nav-link">
-                Komentarze
-            </a>
-            <a href="{{ route('settings') }}" class="nav-link">
-                Ustawienia
-            </a>
-        </nav>
+    @include('Backend.mod._sidebar')
 
-        <div class="mt-auto">
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="btn-logout">Wyloguj się</button>
-            </form>
-        </div>
-    </aside>
-
-    <!-- Main Content -->
     <main class="main-content">
         <div class="header-bar">
             <div class="user-greeting">
                 <h1>Użytkownicy</h1>
-                <p>Przeglądaj listę użytkowników.</p>
+                <p>Przeglądaj listę użytkowników w twoim wydziale.</p>
             </div>
-            
             <div style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.875rem; font-weight: 600;">
                 Zalogowano jako Moderator
             </div>
@@ -49,37 +19,52 @@
             <div class="card-header">
                 Lista użytkowników
             </div>
-            <div class="card-body" style="padding: 1.5rem;">
-                <div style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                        <thead>
-                            <tr style="border-bottom: 1px solid var(--border-color);">
-                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">ID</th>
-                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Nazwa</th>
-                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Rola</th>
-                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Zarejestrowano</th>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem;">
+                            <th style="padding: 0.85rem 1rem;">Użytkownik</th>
+                            <th style="padding: 0.85rem 1rem;">Rola</th>
+                            <th style="padding: 0.85rem 1rem;">Status</th>
+                            <th style="padding: 0.85rem 1rem;">Zarejestrowano</th>
+                            <th style="padding: 0.85rem 1rem; text-align: right;">Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($users as $user)
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <td style="padding: 0.85rem 1rem;">
+                                    <div style="font-weight: 500; color: var(--text-color);">{{ $user->name }}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ $user->email }}</div>
+                                </td>
+                                <td style="padding: 0.85rem 1rem;">
+                                    <span style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">
+                                        {{ ucfirst($user->role ?? 'Brak') }}
+                                    </span>
+                                </td>
+                                <td style="padding: 0.85rem 1rem;">
+                                    @if($user->is_active)
+                                        <span style="color: var(--success); font-size: 0.8rem;">● Aktywny</span>
+                                    @else
+                                        <span style="color: var(--danger); font-size: 0.8rem;">● Zablokowany</span>
+                                    @endif
+                                </td>
+                                <td style="padding: 0.85rem 1rem; color: var(--text-muted); font-size: 0.85rem;">
+                                    {{ $user->created_at->format('Y-m-d') }}
+                                </td>
+                                <td style="padding: 0.85rem 1rem; text-align: right;">
+                                    <a href="{{ route('users.permissions', $user->id) }}" style="color: var(--primary); text-decoration: none; font-size: 0.85rem; background: rgba(99,102,241,0.1); padding: 0.3rem 0.75rem; border-radius: 6px;">
+                                        Uprawnienia
+                                    </a>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($users as $user)
-                                <tr style="border-bottom: 1px solid var(--border-color);">
-                                    <td style="padding: 1rem; color: var(--text-color);">{{ $user->id }}</td>
-                                    <td style="padding: 1rem; color: var(--text-color); font-weight: 500;">{{ $user->name }}</td>
-                                    <td style="padding: 1rem;">
-                                        <span style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">
-                                            {{ ucfirst($user->role ?? 'Brak') }}
-                                        </span>
-                                    </td>
-                                    <td style="padding: 1rem; color: var(--text-color);">{{ $user->created_at->format('Y-m-d H:i') }}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">Brak użytkowników do wyświetlenia.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
+                        @empty
+                            <tr>
+                                <td colspan="5" style="padding: 2rem; text-align: center; color: var(--text-muted);">Brak użytkowników do wyświetlenia.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>

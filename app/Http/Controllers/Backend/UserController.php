@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Departament;
 use App\Models\UserActivity;
+use App\Models\PAccess;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -161,5 +162,61 @@ class UserController extends Controller
 
         return redirect()->route('users.index')
             ->with('success', 'Dane użytkownika zostały zaktualizowane.');
+    }
+
+    public function showPermissions(User $user)
+    {
+        $role = auth()->user()->role ?? 'none';
+
+        if (!in_array($role, ['admin', 'mod'])) {
+            abort(403, 'Brak dostępu.');
+        }
+
+        // Moderator może widzieć tylko swoich użytkowników
+        if ($role === 'mod') {
+            $departmentIds = auth()->user()->departments->pluck('ID_Departament');
+            $hasAccess = $user->departments->pluck('ID_Departament')
+                ->intersect($departmentIds)->isNotEmpty();
+
+            if (!$hasAccess) {
+                abort(403, 'Brak dostępu do tego użytkownika.');
+            }
+        }
+
+        $accesses = PAccess::with(['modul', 'operacja'])
+            ->where('user_id', $user->id)
+            ->get();
+
+        return view('Backend.mod.users.permissions', [
+            'targetUser' => $user,
+            'accesses' => $accesses,
+        ]);
+    }
+
+    public function destroy(User $user)
+    {
+        $role = auth()->user()->role ?? 'none';
+        if ($role !== 'admin') {
+            abort(403, 'Brak dostępu.');
+        }
+
+        if ($user->id === auth()->id()) {
+            return redirect()->route('users.index')
+                ->with('error', 'Nie można usunąć własnego konta.');
+        }
+
+        if ($user->pAccesses()->exists()) {
+            $count = $user->pAccesses()->count();
+            return redirect()->route('users.index')
+                ->with('error', "Nie można usunąć użytkownika \u201e{$user->name}\u201c, ponieważ posiada {$count} przypisanych uprawnień. Najpierw usuń jego uprawnienia.");
+        }
+
+        $name = $user->name;
+        $user->departments()->detach();
+        $user->delete();
+
+        UserActivity::log('delete_user', "Usunięto użytkownika: {$name}");
+
+        return redirect()->route('users.index')->with('success', "Użytkownik {$name} został usunięty.");
     }
 }

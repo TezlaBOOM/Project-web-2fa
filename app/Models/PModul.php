@@ -29,4 +29,9 @@ class PModul extends Model
         }
         return $depth;
     }
+
+    public function pAccesses()
+    {
+        return $this->hasMany(PAccess::class, 'p_modul_id');
+    }
 }

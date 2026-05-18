@@ -83,10 +83,21 @@ class PModulController extends Controller
     public function destroy(PModul $module)
     {
         $this->authorizeAdmin();
-        
+
+        if ($module->children()->exists()) {
+            return redirect()->route('modules.index')
+                ->with('error', "Nie można usunąć modułu \u201e{$module->nazwa}\u201c, ponieważ posiada podkategorie. Najpierw usuń lub przesuń podkategorie.");
+        }
+
+        if ($module->pAccesses()->exists()) {
+            $count = $module->pAccesses()->count();
+            return redirect()->route('modules.index')
+                ->with('error', "Nie można usunąć modułu \u201e{$module->nazwa}\u201c, ponieważ jest używany w {$count} przypisaniach uprawnień. Najpierw usuń te przypisania.");
+        }
+
         $nazwa = $module->nazwa;
         $module->delete();
-        
+
         UserActivity::log('delete_module', "Usunięto moduł: {$nazwa}");
 
         return redirect()->route('modules.index')->with('success', 'Moduł został usunięty.');

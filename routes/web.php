@@ -64,6 +64,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/users', [UserController::class, 'store'])->name('users.store');
     Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+    Route::get('/users/{user}/permissions', [UserController::class, 'showPermissions'])->name('users.permissions');
 
     // Departments (Wydziały)
     Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');

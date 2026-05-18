@@ -23,6 +23,12 @@
             </div>
         @endif
 
+        @if(session('error'))
+            <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--danger); padding: 0.85rem 1.25rem; border-radius: 8px; margin-bottom: 1.25rem; font-size: 0.9rem;">
+                ⚠ {{ session('error') }}
+            </div>
+        @endif
+
         <div class="card" style="padding: 1rem; overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>

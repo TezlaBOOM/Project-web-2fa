@@ -60,10 +60,16 @@ class POperacjeController extends Controller
     public function destroy(POperacje $operation)
     {
         $this->authorizeAdmin();
-        
+
+        if ($operation->pAccesses()->exists()) {
+            $count = $operation->pAccesses()->count();
+            return redirect()->route('operations.index')
+                ->with('error', "Nie można usunąć operacji \u201e{$operation->nazwa}\u201c, ponieważ jest używana w {$count} przypisaniach uprawnień. Najpierw usuń te przypisania.");
+        }
+
         $nazwa = $operation->nazwa;
         $operation->delete();
-        
+
         UserActivity::log('delete_operation', "Usunięto operację: {$nazwa}");
 
         return redirect()->route('operations.index')->with('success', 'Operacja została usunięta.');
