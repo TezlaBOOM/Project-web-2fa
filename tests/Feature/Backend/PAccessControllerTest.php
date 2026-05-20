@@ -40,7 +40,7 @@ class PAccessControllerTest extends TestCase
             'p_operacje_id' => $operacja->id,
         ]);
 
-        $response->assertRedirect(route('access.index'));
+        $response->assertRedirect(route('access.index', ['user_id' => $user->id]));
         $this->assertDatabaseHas('P_access', [
             'user_id' => $user->id,
             'p_modul_id' => $modul->id,

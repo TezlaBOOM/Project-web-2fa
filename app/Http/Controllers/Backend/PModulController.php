@@ -95,6 +95,12 @@ class PModulController extends Controller
                 ->with('error', "Nie można usunąć modułu \u201e{$module->nazwa}\u201c, ponieważ jest używany w {$count} przypisaniach uprawnień. Najpierw usuń te przypisania.");
         }
 
+        if ($module->documents()->exists()) {
+            $count = $module->documents()->count();
+            return redirect()->route('modules.index')
+                ->with('error', "Nie można usunąć modułu \u201e{$module->nazwa}\u201c, ponieważ posiada {$count} przypisanych dokumentów. Najpierw usuń te dokumenty.");
+        }
+
         $nazwa = $module->nazwa;
         $module->delete();
 

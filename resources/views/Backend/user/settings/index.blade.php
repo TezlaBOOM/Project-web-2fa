@@ -3,28 +3,7 @@
 
 @section('content')
     <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="logo">Moja Aplikacja</div>
-        
-        <nav>
-            <a href="{{ route('dashboard') }}" class="nav-link">
-                Panel Główny
-            </a>
-            <a href="#" class="nav-link">
-                Profil
-            </a>
-            <a href="{{ route('settings') }}" class="nav-link active">
-                Ustawienia
-            </a>
-        </nav>
-
-        <div class="mt-auto">
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="btn-logout">Wyloguj się</button>
-            </form>
-        </div>
-    </aside>
+    @include('Backend.user._sidebar')
 
     <!-- Main Content -->
     <main class="main-content">

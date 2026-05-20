@@ -8,6 +8,12 @@
             Panel Główny
         </a>
 
+        {{-- Dokumenty --}}
+        <a href="{{ route('documents.index') }}"
+           class="nav-link {{ request()->routeIs('documents.*') ? 'active' : '' }}">
+            Dokumenty
+        </a>
+
         {{-- Użytkownicy (podmenu) --}}
         <div class="nav-group {{ request()->routeIs('users.*') || request()->routeIs('departments.*') ? 'open' : '' }}" id="nav-group-users">
             <div class="nav-group-header {{ request()->routeIs('users.*') || request()->routeIs('departments.*') ? 'active' : '' }}"

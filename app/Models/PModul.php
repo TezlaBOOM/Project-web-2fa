@@ -34,4 +34,9 @@ class PModul extends Model
     {
         return $this->hasMany(PAccess::class, 'p_modul_id');
     }
+
+    public function documents()
+    {
+        return $this->hasMany(Document::class, 'p_modul_id');
+    }
 }

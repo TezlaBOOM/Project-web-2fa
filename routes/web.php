@@ -9,6 +9,7 @@ use App\Http\Controllers\Backend\DepartmentController;
 use App\Http\Controllers\Backend\PModulController;
 use App\Http\Controllers\Backend\POperacjeController;
 use App\Http\Controllers\Backend\PAccessController;
+use App\Http\Controllers\Backend\DocumentController;
 
 Route::get('/', function () {
     return view('Frontend.login');
@@ -79,4 +80,13 @@ Route::middleware('auth')->group(function () {
     Route::resource('/permissions/modules', PModulController::class)->except(['show']);
     Route::resource('/permissions/operations', POperacjeController::class)->except(['show']);
     Route::resource('/permissions/access', PAccessController::class)->except(['show']);
+
+    // Dokumenty (Documents)
+    Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
+    Route::get('/documents/create', [DocumentController::class, 'create'])->name('documents.create');
+    Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
+    Route::get('/documents/{document}/edit', [DocumentController::class, 'edit'])->name('documents.edit');
+    Route::put('/documents/{document}', [DocumentController::class, 'update'])->name('documents.update');
+    Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
+    Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
 });
