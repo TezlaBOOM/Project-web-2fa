@@ -57,6 +57,19 @@
                         @error('p_operacje_id') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
                     </div>
 
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="valid_from" class="form-label">Ważne od</label>
+                            <input type="date" name="valid_from" id="valid_from" class="form-control" value="{{ old('valid_from', $access->valid_from ? $access->valid_from->format('Y-m-d') : '') }}">
+                            @error('valid_from') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="valid_to" class="form-label">Ważne do</label>
+                            <input type="date" name="valid_to" id="valid_to" class="form-control" value="{{ old('valid_to', $access->valid_to ? $access->valid_to->format('Y-m-d') : '') }}">
+                            @error('valid_to') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
                     <div style="margin-top: 2rem;">
                         <button type="submit" class="btn-primary">Zapisz zmiany</button>
                     </div>

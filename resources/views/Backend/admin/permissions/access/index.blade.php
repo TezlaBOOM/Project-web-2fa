@@ -205,18 +205,35 @@
                                                         <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">{{ $childName }}</span>
                                                     </div>
                                                 @endif
-                                                <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; {{ $childName !== '__root__' ? 'padding-left: 1.3rem;' : '' }}">
+                                                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; {{ $childName !== '__root__' ? 'padding-left: 1.3rem;' : '' }}">
                                                     @foreach($accesses as $access)
-                                                        <div style="display: flex; align-items: center; gap: 0.3rem;">
-                                                            <span style="background: rgba(99,102,241,0.1); color: var(--primary); border: 1px solid rgba(99,102,241,0.2); padding: 0.22rem 0.65rem; border-radius: 999px; font-size: 0.78rem; font-weight: 500;">
+                                                        @php $isValid = $access->isValid(); @endphp
+                                                        <div class="perm-capsule" style="display: inline-flex; align-items: center; background: {{ $isValid ? 'rgba(99, 102, 241, 0.05)' : 'rgba(239, 68, 68, 0.05)' }}; border: 1px solid {{ $isValid ? 'rgba(99, 102, 241, 0.18)' : 'rgba(239, 68, 68, 0.2)' }}; border-radius: 999px; padding: 0.22rem 0.45rem 0.22rem 0.75rem; gap: 0.4rem; transition: all 0.15s; margin-bottom: 0.2rem;" onmouseover="this.style.borderColor='{{ $isValid ? 'rgba(99, 102, 241, 0.4)' : 'rgba(239, 68, 68, 0.4)' }}'; this.style.background='{{ $isValid ? 'rgba(99, 102, 241, 0.1)' : 'rgba(239, 68, 68, 0.1)' }}'" onmouseout="this.style.borderColor='{{ $isValid ? 'rgba(99, 102, 241, 0.18)' : 'rgba(239, 68, 68, 0.2)' }}'; this.style.background='{{ $isValid ? 'rgba(99, 102, 241, 0.05)' : 'rgba(239, 68, 68, 0.05)' }}'">
+                                                            {{-- Operation Name and Dates --}}
+                                                            <span style="color: {{ $isValid ? 'var(--text-color)' : 'var(--danger)' }}; font-size: 0.8rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.35rem;">
                                                                 {{ $access->operacja->nazwa ?? '—' }}
+                                                                @if($access->valid_from || $access->valid_to)
+                                                                    <span style="font-size: 0.72rem; opacity: 0.75; font-weight: 400; color: var(--text-muted);">
+                                                                        ({{ $access->valid_from ? $access->valid_from->format('Y-m-d') : '∞' }} do {{ $access->valid_to ? $access->valid_to->format('Y-m-d') : '∞' }})
+                                                                    </span>
+                                                                @endif
+                                                                @if(!$isValid)
+                                                                    <span style="font-size: 0.6rem; background: rgba(239,68,68,0.18); color: var(--danger); padding: 0.05rem 0.3rem; border-radius: 3px; font-weight: 700; text-transform: uppercase; margin-left: 0.15rem;">Wygasło</span>
+                                                                @endif
                                                             </span>
+
+                                                            {{-- Admin Actions Divider and Buttons inside the capsule --}}
                                                             @if($role === 'admin')
-                                                                <form action="{{ route('access.destroy', $access->id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Usunąć to uprawnienie?');">
-                                                                    @csrf
-                                                                    @method('DELETE')
-                                                                    <button type="submit" title="Usuń" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0; font-size: 0.8rem; line-height: 1; transition: color 0.15s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
-                                                                </form>
+                                                                <span style="width: 1px; height: 12px; background: {{ $isValid ? 'rgba(99, 102, 241, 0.25)' : 'rgba(239, 68, 68, 0.25)' }}; margin: 0 0.1rem;"></span>
+                                                                <div style="display: inline-flex; align-items: center; gap: 0.35rem; padding-right: 0.2rem;">
+                                                                    <a href="{{ route('access.edit', $access->id) }}" title="Edytuj uprawnienie" style="color: var(--text-muted); text-decoration: none; font-size: 0.75rem; display: inline-flex; align-items: center; transition: color 0.12s; padding: 0.15rem;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">✏️</a>
+                                                                    
+                                                                    <form action="{{ route('access.destroy', $access->id) }}" method="POST" style="margin: 0; display: inline-flex; align-items: center;" onsubmit="return confirm('Usunąć to uprawnienie?');">
+                                                                        @csrf
+                                                                        @method('DELETE')
+                                                                        <button type="submit" title="Usuń" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.15rem; font-size: 0.75rem; line-height: 1; display: inline-flex; align-items: center; transition: color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
+                                                                    </form>
+                                                                </div>
                                                             @endif
                                                         </div>
                                                     @endforeach

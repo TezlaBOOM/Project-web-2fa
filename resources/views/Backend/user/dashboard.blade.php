@@ -45,6 +45,8 @@
                                 <th style="padding: 0.75rem;">Moduł</th>
                                 <th style="padding: 0.75rem;">Zagnieżdżenie</th>
                                 <th style="padding: 0.75rem;">Dozwolona Operacja</th>
+                                <th style="padding: 0.75rem;">Okres ważności</th>
+                                <th style="padding: 0.75rem;">Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -56,8 +58,28 @@
                                     <td style="padding: 0.75rem; color: var(--text-muted);">
                                         {{ isset($access->modul) && $access->modul->pozycja > 0 ? 'Podkategoria (' . $access->modul->pozycja . ')' : 'Kategoria główna (0)' }}
                                     </td>
-                                    <td style="padding: 0.75rem; color: var(--primary);">
+                                    <td style="padding: 0.75rem; color: var(--primary); font-weight: 500;">
                                         {{ $access->operacja->nazwa ?? 'Brak' }}
+                                    </td>
+                                    <td style="padding: 0.75rem; color: var(--text-muted); font-size: 0.8rem;">
+                                        @if($access->valid_from || $access->valid_to)
+                                            {{ $access->valid_from ? $access->valid_from->format('Y-m-d') : 'od zawsze' }}
+                                            do
+                                            {{ $access->valid_to ? $access->valid_to->format('Y-m-d') : 'bez limitu' }}
+                                        @else
+                                            Bez ograniczeń
+                                        @endif
+                                    </td>
+                                    <td style="padding: 0.75rem;">
+                                        @if($access->isValid())
+                                            <span style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25); padding: 0.18rem 0.55rem; border-radius: 999px; font-size: 0.73rem; font-weight: 600;">
+                                                Aktywne
+                                            </span>
+                                        @else
+                                            <span style="background: rgba(239, 68, 68, 0.12); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.25); padding: 0.18rem 0.55rem; border-radius: 999px; font-size: 0.73rem; font-weight: 600;">
+                                                Nieaktywne / Wygasło
+                                            </span>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach

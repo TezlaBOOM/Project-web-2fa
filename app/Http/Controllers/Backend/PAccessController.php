@@ -88,6 +88,8 @@ class PAccessController extends Controller
             'user_id' => 'required|exists:users,id',
             'p_modul_id' => 'required|exists:P_modul,id',
             'p_operacje_id' => 'required|exists:P_operacje,id',
+            'valid_from' => 'nullable|date',
+            'valid_to' => 'nullable|date|after_or_equal:valid_from',
         ]);
 
         // Check if access already exists
@@ -124,6 +126,8 @@ class PAccessController extends Controller
             'user_id' => 'required|exists:users,id',
             'p_modul_id' => 'required|exists:P_modul,id',
             'p_operacje_id' => 'required|exists:P_operacje,id',
+            'valid_from' => 'nullable|date',
+            'valid_to' => 'nullable|date|after_or_equal:valid_from',
         ]);
 
         $exists = PAccess::where('user_id', $validated['user_id'])
@@ -139,7 +143,7 @@ class PAccessController extends Controller
         $access->update($validated);
         UserActivity::log('update_access', "Zaktualizowano uprawnienie dla użytkownika ID: {$access->user_id}");
 
-        return redirect()->route('access.index')->with('success', 'Uprawnienie zostało zaktualizowane.');
+        return redirect()->route('access.index', ['user_id' => $access->user_id])->with('success', 'Uprawnienie zostało zaktualizowane.');
     }
 
     public function destroy(PAccess $access)

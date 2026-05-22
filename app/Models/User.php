@@ -48,4 +48,28 @@ class User extends Authenticatable
     {
         return $this->hasMany(PAccess::class, 'user_id');
     }
+
+    public function hasActiveAccess($moduleName, $operationName)
+    {
+        if ($this->role === 'admin') {
+            return true;
+        }
+
+        $accesses = $this->pAccesses()
+            ->whereHas('modul', function ($q) use ($moduleName) {
+                $q->where('nazwa', $moduleName);
+            })
+            ->whereHas('operacja', function ($q) use ($operationName) {
+                $q->where('nazwa', $operationName);
+            })
+            ->get();
+
+        foreach ($accesses as $access) {
+            if ($access->isValid()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

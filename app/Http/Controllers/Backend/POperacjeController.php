@@ -13,8 +13,13 @@ class POperacjeController extends Controller
     public function index()
     {
         $this->authorizeAdmin();
-        $operations = POperacje::orderBy('nazwa')->get();
-        return view('Backend.admin.permissions.operations.index', compact('operations'));
+        $search = request('search');
+        $query = POperacje::orderBy('nazwa');
+        if ($search) {
+            $query->where('nazwa', 'like', "%{$search}%");
+        }
+        $operations = $query->get();
+        return view('Backend.admin.permissions.operations.index', compact('operations', 'search'));
     }
 
     public function create()

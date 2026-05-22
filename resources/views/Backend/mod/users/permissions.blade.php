@@ -61,8 +61,17 @@
                         </div>
                         <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
                             @foreach($moduleAccesses as $access)
-                                <span style="background: rgba(99, 102, 241, 0.12); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.25); padding: 0.3rem 0.8rem; border-radius: 999px; font-size: 0.82rem; font-weight: 500;">
+                                @php $isValid = $access->isValid(); @endphp
+                                <span style="background: {{ $isValid ? 'rgba(99, 102, 241, 0.1)' : 'rgba(239, 68, 68, 0.08)' }}; color: {{ $isValid ? 'var(--primary)' : 'var(--danger)' }}; border: 1px solid {{ $isValid ? 'rgba(99, 102, 241, 0.22)' : 'rgba(239, 68, 68, 0.22)' }}; padding: 0.3rem 0.8rem; border-radius: 999px; font-size: 0.82rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.35rem;">
                                     {{ $access->operacja->nazwa ?? '—' }}
+                                    @if($access->valid_from || $access->valid_to)
+                                        <span style="font-size: 0.72rem; opacity: 0.8; font-weight: 400;">
+                                            ({{ $access->valid_from ? $access->valid_from->format('Y-m-d') : '∞' }} - {{ $access->valid_to ? $access->valid_to->format('Y-m-d') : '∞' }})
+                                        </span>
+                                    @endif
+                                    @if(!$isValid)
+                                        <span style="font-size: 0.62rem; background: rgba(239, 68, 68, 0.18); color: var(--danger); padding: 0.05rem 0.3rem; border-radius: 3px; font-weight: 700; text-transform: uppercase;">Wygasło</span>
+                                    @endif
                                 </span>
                             @endforeach
                         </div>

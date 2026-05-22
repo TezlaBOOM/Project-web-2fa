@@ -97,4 +97,137 @@ class PAccessControllerTest extends TestCase
         $response->assertSee($myUser->name);
         $response->assertDontSee($otherUser->name);
     }
+
+    public function test_admin_can_set_and_update_validity_dates()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['role' => 'user']);
+        $modul = PModul::create(['nazwa' => 'ERP']);
+        $operacja = POperacje::create(['nazwa' => 'Edycja']);
+
+        // 1. Create access with valid date ranges
+        $response = $this->actingAs($admin)->post(route('access.store'), [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-05-01',
+            'valid_to' => '2026-05-31',
+        ]);
+
+        $response->assertRedirect(route('access.index', ['user_id' => $user->id]));
+        $this->assertDatabaseHas('P_access', [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-05-01 00:00:00',
+            'valid_to' => '2026-05-31 00:00:00',
+        ]);
+
+        // 2. Try to store with valid_to before valid_from (should fail validation)
+        $responseInvalid = $this->actingAs($admin)->post(route('access.store'), [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-05-31',
+            'valid_to' => '2026-05-01',
+        ]);
+        $responseInvalid->assertSessionHasErrors(['valid_to']);
+
+        // 3. Update existing access
+        $access = PAccess::first();
+        $responseUpdate = $this->actingAs($admin)->put(route('access.update', $access->id), [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-06-01',
+            'valid_to' => null,
+        ]);
+
+        $responseUpdate->assertRedirect(route('access.index', ['user_id' => $user->id]));
+        $this->assertDatabaseHas('P_access', [
+            'id' => $access->id,
+            'valid_from' => '2026-06-01 00:00:00',
+            'valid_to' => null,
+        ]);
+    }
+
+    public function test_paccess_is_valid_logic()
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $modul = PModul::create(['nazwa' => 'ERP']);
+        $operacja = POperacje::create(['nazwa' => 'Edycja']);
+
+        // Active: dates covering today (e.g. valid from yesterday, to tomorrow)
+        $activeAccess = PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => now()->subDay()->toDateString(),
+            'valid_to' => now()->addDay()->toDateString(),
+        ]);
+        $this->assertTrue($activeAccess->isValid());
+
+        // Active: no limits
+        $unlimitedAccess = PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => null,
+            'valid_to' => null,
+        ]);
+        $this->assertTrue($unlimitedAccess->isValid());
+
+        // Expired: valid_to is yesterday
+        $expiredAccess = PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => now()->subDays(5)->toDateString(),
+            'valid_to' => now()->subDay()->toDateString(),
+        ]);
+        $this->assertFalse($expiredAccess->isValid());
+
+        // Not yet active: valid_from is tomorrow
+        $futureAccess = PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => now()->addDay()->toDateString(),
+            'valid_to' => now()->addDays(5)->toDateString(),
+        ]);
+        $this->assertFalse($futureAccess->isValid());
+    }
+
+    public function test_user_has_active_access_logic()
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $modul = PModul::create(['nazwa' => 'ERP']);
+        $opView = POperacje::create(['nazwa' => 'Podgląd']);
+        $opEdit = POperacje::create(['nazwa' => 'Edycja']);
+
+        // ERP Podgląd: valid from May 1 2020 to Dec 31 2050 (active today)
+        PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $opView->id,
+            'valid_from' => '2020-05-01',
+            'valid_to' => '2050-12-31',
+        ]);
+
+        // ERP Edycja: valid from tomorrow onwards (not yet active today)
+        PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $opEdit->id,
+            'valid_from' => now()->addDay()->toDateString(),
+            'valid_to' => '2050-12-31',
+        ]);
+
+        $this->assertTrue($user->hasActiveAccess('ERP', 'Podgląd'));
+        $this->assertFalse($user->hasActiveAccess('ERP', 'Edycja'));
+
+        // Admin has access to everything
+        $admin = $this->createAdmin();
+        $this->assertTrue($admin->hasActiveAccess('ERP', 'Edycja'));
+    }
 }

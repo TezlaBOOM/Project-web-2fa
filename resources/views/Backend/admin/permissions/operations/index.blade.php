@@ -29,6 +29,27 @@
             </div>
         @endif
 
+        {{-- Filtry --}}
+        <form method="GET" action="{{ route('operations.index') }}" id="search-form">
+            <div style="display: flex; gap: 0.65rem; margin-bottom: 1.25rem; align-items: center; flex-wrap: wrap;">
+                {{-- Wyszukiwarka --}}
+                <div style="position: relative; flex: 1; min-width: 200px; max-width: 340px;">
+                    <span style="position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.9rem;">🔍</span>
+                    <input type="text" name="search" id="search-input" class="form-control"
+                           value="{{ $search ?? '' }}" placeholder="Szukaj operacji..."
+                           style="padding-left: 2.2rem;" autocomplete="off">
+                </div>
+
+                {{-- Wyczyść --}}
+                @if(!empty($search))
+                    <a href="{{ route('operations.index') }}"
+                       style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.5rem 0.85rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
+                        ✕ Wyczyść
+                    </a>
+                @endif
+            </div>
+        </form>
+
         <div class="card" style="padding: 1rem; overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
@@ -56,7 +77,13 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2rem 0;">Brak operacji.</td>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2rem 0;">
+                                @if(!empty($search))
+                                    Brak operacji spełniających kryteria wyszukiwania.
+                                @else
+                                    Brak operacji.
+                                @endif
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -64,3 +91,18 @@
         </div>
     </main>
 @endsection
+
+@push('scripts')
+<script>
+    const searchInput = document.getElementById('search-input');
+    let debounceTimer;
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                document.getElementById('search-form').submit();
+            }, 400);
+        });
+    }
+</script>
+@endpush

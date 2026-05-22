@@ -39,4 +39,15 @@ class PModul extends Model
     {
         return $this->hasMany(Document::class, 'p_modul_id');
     }
+
+    public function getFullPathAttribute()
+    {
+        $path = [$this->nazwa];
+        $parent = $this->parent;
+        while ($parent) {
+            array_unshift($path, $parent->nazwa);
+            $parent = $parent->parent;
+        }
+        return implode(' > ', $path);
+    }
 }

@@ -13,8 +13,13 @@ class PModulController extends Controller
     public function index()
     {
         $this->authorizeAdmin();
-        $modules = PModul::whereNull('parent_id')->with('children')->orderBy('nazwa')->get();
-        return view('Backend.admin.permissions.modules.index', compact('modules'));
+        $search = request('search');
+        if ($search) {
+            $modules = PModul::where('nazwa', 'like', "%{$search}%")->with('parent')->orderBy('nazwa')->get();
+        } else {
+            $modules = PModul::whereNull('parent_id')->with('children')->orderBy('nazwa')->get();
+        }
+        return view('Backend.admin.permissions.modules.index', compact('modules', 'search'));
     }
 
     public function create()

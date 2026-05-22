@@ -34,8 +34,23 @@
         </div>
 
         <div class="card">
-            <div class="card-header">
-                Ostatnia Aktywność Systemu
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                <span>Ostatnia Aktywność Systemu</span>
+                {{-- Formularz Wyszukiwania w Logach --}}
+                <form method="GET" action="{{ route('dashboard') }}" id="search-form" style="margin: 0; display: flex; align-items: center; gap: 0.65rem;">
+                    <div style="position: relative; width: 260px;">
+                        <span style="position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.9rem;">🔍</span>
+                        <input type="text" name="search" id="search-input" class="form-control"
+                               value="{{ $search ?? '' }}" placeholder="Szukaj w logach..."
+                               style="padding-left: 2.2rem; padding-top: 0.4rem; padding-bottom: 0.4rem; font-size: 0.85rem;" autocomplete="off">
+                    </div>
+                    @if(!empty($search))
+                        <a href="{{ route('dashboard') }}"
+                           style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.75rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
+                            ✕ Wyczyść
+                        </a>
+                    @endif
+                </form>
             </div>
             <div class="activity-list" style="padding: 1rem; overflow-x: auto;">
                 @if($activities && $activities->count() > 0)
@@ -66,9 +81,26 @@
                         </tbody>
                     </table>
                     
-                    <div style="margin-top: 1rem;">
-                        {{ $activities->links() }}
-                    </div>
+                    @if($activities->hasPages())
+                        <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 1rem; flex-wrap: wrap; gap: 0.8rem;">
+                            <span style="font-size: 0.82rem; color: var(--text-muted);">
+                                Wyświetlono <strong style="color: var(--text-color); font-weight: 500;">{{ $activities->firstItem() }}–{{ $activities->lastItem() }}</strong> z <strong style="color: var(--text-color); font-weight: 500;">{{ $activities->total() }}</strong> aktywności
+                            </span>
+                            <div style="display: flex; gap: 0.45rem;">
+                                @if($activities->onFirstPage())
+                                    <span style="padding: 0.4rem 0.85rem; border-radius: 6px; font-size: 0.8rem; color: var(--text-muted); opacity: 0.4; border: 1px solid var(--border); pointer-events: none; user-select: none;">Poprzednia</span>
+                                @else
+                                    <a href="{{ $activities->previousPageUrl() }}" style="padding: 0.4rem 0.85rem; border-radius: 6px; font-size: 0.8rem; color: var(--primary); text-decoration: none; background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.18); transition: all 0.15s; font-weight: 500;" onmouseover="this.style.background='rgba(99,102,241,0.15)'; this.style.borderColor='rgba(99,102,241,0.3)'" onmouseout="this.style.background='rgba(99,102,241,0.06)'; this.style.borderColor='rgba(99,102,241,0.18)'">Poprzednia</a>
+                                @endif
+
+                                @if($activities->hasMorePages())
+                                    <a href="{{ $activities->nextPageUrl() }}" style="padding: 0.4rem 0.85rem; border-radius: 6px; font-size: 0.8rem; color: var(--primary); text-decoration: none; background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.18); transition: all 0.15s; font-weight: 500;" onmouseover="this.style.background='rgba(99,102,241,0.15)'; this.style.borderColor='rgba(99,102,241,0.3)'" onmouseout="this.style.background='rgba(99,102,241,0.06)'; this.style.borderColor='rgba(99,102,241,0.18)'">Następna</a>
+                                @else
+                                    <span style="padding: 0.4rem 0.85rem; border-radius: 6px; font-size: 0.8rem; color: var(--text-muted); opacity: 0.4; border: 1px solid var(--border); pointer-events: none; user-select: none;">Następna</span>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                 @else
                     <p style="text-align: center; color: var(--text-muted); padding: 2rem 0;">Brak zarejestrowanej aktywności.</p>
                 @endif
@@ -76,3 +108,18 @@
         </div>
     </main>
 @endsection
+
+@push('scripts')
+<script>
+    const searchInput = document.getElementById('search-input');
+    let debounceTimer;
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                document.getElementById('search-form').submit();
+            }, 400);
+        });
+    }
+</script>
+@endpush

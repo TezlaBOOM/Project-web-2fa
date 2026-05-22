@@ -86,4 +86,18 @@ class PModulControllerTest extends TestCase
 
         $response->assertSessionHasErrors(['parent_id' => 'Zbyt głębokie zagnieżdżenie. Maksymalny limit to 5 poziomów.']);
     }
+
+    public function test_admin_can_search_modules()
+    {
+        $admin = $this->createAdmin();
+        
+        $m1 = PModul::create(['nazwa' => 'System']);
+        $m2 = PModul::create(['nazwa' => 'Security', 'parent_id' => $m1->id]);
+        $m3 = PModul::create(['nazwa' => 'ERP']);
+
+        $response = $this->actingAs($admin)->get(route('modules.index', ['search' => 'Secur']));
+        $response->assertStatus(200);
+        $response->assertSee('System &gt; Security', false);
+        $response->assertDontSee('ERP');
+    }
 }

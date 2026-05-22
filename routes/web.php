@@ -38,9 +38,23 @@ Route::middleware('auth')->group(function () {
         $usersCount = 0;
         $activities = null;
         $accesses = null;
+        $search = request('search');
+
         if ($role === 'admin') {
             $usersCount = \App\Models\User::count();
-            $activities = \App\Models\UserActivity::with('user')->latest()->paginate(10);
+            $query = \App\Models\UserActivity::with('user');
+            if ($search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('action', 'like', "%{$search}%")
+                      ->orWhere('description', 'like', "%{$search}%")
+                      ->orWhere('ip_address', 'like', "%{$search}%")
+                      ->orWhereHas('user', function($uq) use ($search) {
+                          $uq->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                      });
+                });
+            }
+            $activities = $query->latest()->paginate(10)->withQueryString();
         } elseif ($role === 'mod') {
             $departmentIds = $user->departments->pluck('ID_Departament');
             if ($departmentIds->isNotEmpty()) {
@@ -52,7 +66,7 @@ Route::middleware('auth')->group(function () {
             $accesses = \App\Models\PAccess::with(['modul', 'operacja'])->where('user_id', $user->id)->get();
         }
         
-        return view("Backend.{$role}.dashboard", compact('usersCount', 'activities', 'accesses'));
+        return view("Backend.{$role}.dashboard", compact('usersCount', 'activities', 'accesses', 'search'));
     })->name('dashboard');
 
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
