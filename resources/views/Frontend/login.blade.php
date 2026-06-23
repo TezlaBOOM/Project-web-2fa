@@ -27,7 +27,7 @@
             <div class="form-group">
                 <label for="password">Hasło</label>
                 <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
-                <a href="#" class="forgot-password">Zapomniałeś hasła?</a>
+                <a href="{{ route('password.request') }}" class="forgot-password">Zapomniałeś hasła?</a>
             </div>
 
             <button type="submit" class="btn-submit">Zaloguj się</button>

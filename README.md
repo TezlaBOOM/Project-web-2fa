@@ -1,58 +1,301 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🚀 Project Web 2FA — Instrukcja uruchomienia
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+System zarządzania oparty na Laravel 12 z uwierzytelnianiem dwuskładnikowym (2FA via e-mail).
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 📋 Wymagania systemowe
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Przed rozpoczęciem upewnij się, że na urządzeniu są zainstalowane:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Narzędzie | Minimalna wersja | Sprawdzenie |
+|-----------|-----------------|-------------|
+| **PHP** | 8.3+ | `php -v` |
+| **Composer** | 2.x | `composer -V` |
+| **Node.js** | 18+ | `node -v` |
+| **npm** | 9+ | `npm -v` |
+| **MySQL** / MariaDB | 8.0+ / 10.4+ | `mysql --version` |
 
-## Learning Laravel
+> 💡 **Zalecane środowisko lokalne:** [ServBay](https://www.servbay.dev/) (macOS), [Laravel Herd](https://herd.laravel.com/) lub [Laragon](https://laragon.org/) (Windows) — dostarczają PHP, MySQL i wirtualne hosty out-of-the-box.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+---
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## ⚡ Szybki start (krok po kroku)
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+### Krok 1 — Sklonuj lub skopiuj projekt
 
 ```bash
-composer require laravel/boost --dev
+# Opcja A: klonowanie przez Git
+git clone <adres-repozytorium> projekt-2fa
+cd projekt-2fa
 
-php artisan boost:install
+# Opcja B: skopiowanie folderu
+# Skopiuj cały folder projektu do katalogu roboczego serwera,
+# np. /Applications/ServBay/www/  lub  C:/laragon/www/
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+---
 
-## Contributing
+### Krok 2 — Zainstaluj zależności PHP
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+composer install
+```
 
-## Code of Conduct
+> Komenda pobiera wszystkie pakiety zdefiniowane w `composer.json` do katalogu `vendor/`.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+---
 
-## Security Vulnerabilities
+### Krok 3 — Utwórz plik konfiguracyjny `.env`
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+cp .env.example .env
+```
 
-## License
+Następnie otwórz plik `.env` i uzupełnij sekcję bazy danych:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```dotenv
+APP_NAME="Moja Aplikacja"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=project_web_2fa   # ← nazwa bazy danych (utwórz ją wcześniej!)
+DB_USERNAME=root               # ← twój użytkownik MySQL
+DB_PASSWORD=                   # ← twoje hasło MySQL
+```
+
+---
+
+### Krok 4 — Utwórz bazę danych
+
+Zaloguj się do MySQL i utwórz pustą bazę:
+
+```sql
+CREATE DATABASE project_web_2fa CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Możesz też użyć narzędzia graficznego: **phpMyAdmin**, **TablePlus**, **DBeaver** lub **HeidiSQL**.
+
+---
+
+### Krok 5 — Wygeneruj klucz aplikacji
+
+```bash
+php artisan key:generate
+```
+
+> Komenda wypełnia pole `APP_KEY` w pliku `.env`. Jest to wymagane do szyfrowania sesji i danych.
+
+---
+
+### Krok 6 — Uruchom migracje bazy danych
+
+```bash
+php artisan migrate
+```
+
+Tworzone są wszystkie tabele:
+
+| Tabela | Opis |
+|--------|------|
+| `users` | Konta użytkowników (z polami 2FA) |
+| `settings` | Ustawienia globalne systemu |
+| `user_activities` | Logi aktywności |
+| `Departament` | Wydziały / działy |
+| `DepartamentUsers` | Przypisania użytkownik–wydział |
+| `P_modul` | Moduły uprawnień |
+| `P_operacje` | Operacje w modułach |
+| `P_access` | Uprawnienia użytkowników |
+| `documents` | Dokumenty systemowe |
+| `sessions`, `cache`, `jobs` | Tabele systemowe Laravel |
+
+---
+
+### Krok 7 — Wypełnij bazę danymi startowymi (Seeder)
+
+```bash
+php artisan db:seed
+```
+
+Tworzone są domyślne konta użytkowników:
+
+| E-mail | Hasło | Rola |
+|--------|-------|------|
+| `admin@admin.com` | `admin` | Administrator |
+| `mod@admin.com` | `mod` | Moderator |
+| `user@admin.com` | `user` | Użytkownik |
+
+> ⚠️ **Ważne:** Zmień domyślne hasła natychmiast po pierwszym zalogowaniu!
+
+---
+
+### Krok 8 — Zainstaluj zależności Node.js i zbuduj zasoby
+
+```bash
+npm install
+npm run build
+```
+
+> Vite skompiluje pliki CSS i JavaScript do katalogu `public/build/`.
+
+---
+
+### Krok 9 — Uruchom serwer deweloperski
+
+#### Opcja A: wbudowany serwer PHP (najprostszy sposób)
+
+```bash
+php artisan serve
+```
+
+Aplikacja dostępna pod adresem: **http://127.0.0.1:8000**
+
+#### Opcja B: ServBay / Herd / Laragon (wirtualny host)
+
+Jeśli korzystasz z lokalnego środowiska ze wsparciem dla domen `.test`:
+
+1. Wskaż katalog główny serwera na folder `public/` projektu
+2. Ustaw domenę, np. `l-2fa.test`
+3. Aplikacja dostępna pod: **https://l-2fa.test/**
+
+#### Opcja C: pełny tryb deweloperski (serwer + hot-reload Vite)
+
+```bash
+composer run dev
+```
+
+Uruchamia równolegle: serwer PHP, kolejkę zadań i Vite z hot-reload.
+
+---
+
+## 🔧 Konfiguracja 2FA (wysyłka e-maili)
+
+Aplikacja obsługuje konfigurację SMTP bezpośrednio z panelu administratora (zakładka **Ustawienia → Logowanie**). Możesz jednak skonfigurować domyślny mailer w pliku `.env`:
+
+```dotenv
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.mailtrap.io    # np. Mailtrap do testów
+MAIL_PORT=2525
+MAIL_USERNAME=twoj_login
+MAIL_PASSWORD=twoje_haslo
+MAIL_FROM_ADDRESS="no-reply@example.com"
+MAIL_FROM_NAME="System 2FA"
+```
+
+> 💡 **Do testów lokalnych** polecamy [Mailtrap](https://mailtrap.io/) lub [Mailpit](https://mailpit.axllent.org/) — przechwytują e-maile bez faktycznego wysyłania.
+
+---
+
+## 🗂️ Struktura katalogów (skrót)
+
+```
+projekt-2fa/
+├── app/              → Kontrolery, Modele, Maile
+├── database/
+│   ├── migrations/   → Struktura bazy danych
+│   └── seeders/      → Dane startowe
+├── public/           → Katalog publiczny (document root serwera!)
+│   └── build/        → Skompilowane zasoby (CSS/JS)
+├── resources/
+│   └── views/        → Szablony Blade (Frontend + Backend)
+├── routes/
+│   └── web.php       → Definicja tras HTTP
+├── storage/
+│   └── app/documents/→ Przesyłane pliki (poza public/)
+├── .env              → Konfiguracja środowiska (NIE commituj!)
+├── .env.example      → Szablon konfiguracji
+├── composer.json     → Zależności PHP
+└── package.json      → Zależności Node.js
+```
+
+> ⚠️ **Document root serwera** musi wskazywać na katalog `public/`, **nie** na główny folder projektu!
+
+---
+
+## 🔑 Pierwsze logowanie
+
+1. Otwórz aplikację w przeglądarce
+2. Zaloguj się danymi admina:
+   - **E-mail:** `admin@admin.com`
+   - **Hasło:** `admin`
+3. Przejdź do **Ustawienia → Logowanie**, aby skonfigurować SMTP i opcje 2FA
+4. Zmień hasło admina w **Ustawienia → Zmiana hasła**
+
+---
+
+## 🛠️ Przydatne polecenia Artisan
+
+```bash
+# Czyszczenie cache konfiguracji (po zmianach w .env)
+php artisan config:clear
+php artisan cache:clear
+
+# Ponowne uruchomienie migracji (UWAGA: kasuje wszystkie dane!)
+php artisan migrate:fresh --seed
+
+# Uruchomienie testów
+php artisan test
+
+# Kolejka zadań (jeśli uruchamiasz ręcznie)
+php artisan queue:work
+```
+
+---
+
+## ❗ Najczęstsze problemy
+
+### Problem: `APP_KEY` is missing
+```bash
+php artisan key:generate
+```
+
+### Problem: brak uprawnień do zapisu w `storage/` lub `bootstrap/cache/`
+```bash
+chmod -R 775 storage bootstrap/cache
+```
+
+### Problem: biała strona / błąd 500
+- Sprawdź plik `storage/logs/laravel.log`
+- Upewnij się, że `.env` ma poprawne dane do bazy danych
+- Sprawdź czy uruchomione są migracje: `php artisan migrate:status`
+
+### Problem: brak stylów (CSS nie działa)
+```bash
+npm install
+npm run build
+```
+Upewnij się, że katalog `public/build/` istnieje i zawiera skompilowane pliki.
+
+### Problem: e-maile 2FA nie dochodzą
+- Sprawdź konfigurację SMTP w panelu: **Ustawienia → Logowanie**
+- Tymczasowo ustaw `MAIL_MAILER=log` w `.env` — kody będą zapisywane w `storage/logs/laravel.log`
+
+---
+
+## 📦 Jednorazowa instalacja (skrót — wszystkie kroki razem)
+
+```bash
+# 1. Wejdź do folderu projektu
+cd /ścieżka/do/projektu
+
+# 2. Zainstaluj wszystko jednym skryptem
+composer install
+cp .env.example .env
+php artisan key:generate
+# ← Teraz edytuj .env i uzupełnij dane MySQL ←
+php artisan migrate
+php artisan db:seed
+npm install
+npm run build
+
+# 3. Uruchom
+php artisan serve
+```
+
+---
+
+*Szczegółową dokumentację działania aplikacji znajdziesz w pliku [DOKUMENTACJA.md](DOKUMENTACJA.md).*

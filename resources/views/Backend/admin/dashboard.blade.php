@@ -29,7 +29,7 @@
             </div>
             <div class="stat-card">
                 <div class="stat-title">Zgłoszenia</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">0</div>
             </div>
         </div>
 

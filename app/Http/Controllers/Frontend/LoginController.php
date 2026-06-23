@@ -114,7 +114,7 @@ class LoginController extends Controller
 
         $user = User::find($userId);
 
-        if (!$user || $user->two_factor_code !== $request->two_factor_code) {
+        if (!$user || (int)$user->two_factor_code !== (int)$request->two_factor_code) {
             return back()->with('error', 'Wprowadzony kod jest nieprawidłowy.');
         }
 

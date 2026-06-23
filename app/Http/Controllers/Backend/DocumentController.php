@@ -48,7 +48,7 @@ class DocumentController extends Controller
         $validated = $request->validate([
             'nazwa' => 'required|string|max:255',
             'p_modul_id' => 'required|exists:P_modul,id',
-            'file' => 'required|file|max:10240', // max 10MB
+            'file' => 'required|file|max:10240|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,png,jpg,jpeg',
         ]);
 
         if ($request->hasFile('file')) {

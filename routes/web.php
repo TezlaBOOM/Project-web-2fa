@@ -10,6 +10,7 @@ use App\Http\Controllers\Backend\PModulController;
 use App\Http\Controllers\Backend\POperacjeController;
 use App\Http\Controllers\Backend\PAccessController;
 use App\Http\Controllers\Backend\DocumentController;
+use App\Http\Controllers\Frontend\PasswordResetController;
 
 Route::get('/', function () {
     return view('Frontend.login');
@@ -19,11 +20,17 @@ Route::get('/register', function () {
     return view('Frontend.register');
 })->name('register');
 
-Route::post('/register', [RegisterController::class, 'store']);
-Route::post('/login', [LoginController::class, 'authenticate'])->name('login.post');
+Route::post('/register', [RegisterController::class, 'store'])->middleware('throttle:5,1');
+Route::post('/login', [LoginController::class, 'authenticate'])->middleware('throttle:10,1')->name('login.post');
 Route::get('/login/2fa', [LoginController::class, 'show2faForm'])->name('login.2fa');
-Route::post('/login/2fa', [LoginController::class, 'verify2fa'])->name('login.2fa.verify');
+Route::post('/login/2fa', [LoginController::class, 'verify2fa'])->middleware('throttle:5,1')->name('login.2fa.verify');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
+// Resetowanie hasła
+Route::get('/forgot-password',  [PasswordResetController::class, 'showForgotForm'])->name('password.request');
+Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->middleware('throttle:3,5')->name('password.email');
+Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
+Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->middleware('throttle:5,1')->name('password.update');
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
