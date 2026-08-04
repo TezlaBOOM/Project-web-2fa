@@ -8,6 +8,7 @@
     --border: #334155;
     --danger: #ef4444;
     --success: #10b981;
+    color-scheme: dark;
 }
 
 * {
@@ -276,6 +277,17 @@ body {
     border-radius: 8px;
     color: var(--text-main);
     transition: all 0.3s;
+}
+
+/* Ensure select dropdown options have dark background and light text */
+select.form-control {
+    background-color: var(--surface);
+    color-scheme: dark;
+}
+
+select.form-control option {
+    background-color: var(--surface);
+    color: var(--text-main);
 }
 
 .form-control:focus {

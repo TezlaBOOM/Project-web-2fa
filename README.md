@@ -274,6 +274,28 @@ Upewnij się, że katalog `public/build/` istnieje i zawiera skompilowane pliki.
 - Sprawdź konfigurację SMTP w panelu: **Ustawienia → Logowanie**
 - Tymczasowo ustaw `MAIL_MAILER=log` w `.env` — kody będą zapisywane w `storage/logs/laravel.log`
 
+## 🔄 Aktualizacja projektu z GitHub (Jedna komenda)
+
+Jeśli kod projektu został zmodyfikowany na repozytorium GitHub i chcesz go zaktualizować w swoim środowisku, możesz to zrobić jedną prostą komendą:
+
+### Opcja A: Dedykowany skrypt (macOS / Linux / Windows)
+W zależności od systemu operacyjnego uruchom w głównym katalogu projektu:
+- Na systemach **macOS / Linux**:
+  ```bash
+  ./update.sh
+  ```
+- Na systemie **Windows**:
+  ```cmd
+  update.bat
+  ```
+*(Skrypt automatycznie: pobierze zmiany przez git pull, zaktualizuje zależności PHP przez Composer, zaktualizuje i zbuduje zasoby NPM przez Vite, uruchomi nowe migracje bazy danych oraz wyczyści całą pamięć podręczną).*
+
+### Opcja B: Poprzez Composer
+Jeśli wolisz używać Composer, możesz wywołać skrót:
+```bash
+composer update-project
+```
+
 ---
 
 ## 📦 Jednorazowa instalacja (skrót — wszystkie kroki razem)
