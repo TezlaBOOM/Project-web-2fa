@@ -99,7 +99,15 @@ class UserController extends Controller
 
         $departments = Departament::orderBy('Nazwa')->get();
 
-        return view('Backend.admin.users.edit', compact('user', 'departments'));
+        $changeLogs = \App\Models\UserChangeLog::with('editor')
+            ->where('user_id', $user->id)
+            ->latest()
+            ->get();
+
+        $historyNameEmail = $changeLogs->whereIn('field_name', ['name', 'email', 'departments']);
+        $historyOther = $changeLogs->whereNotIn('field_name', ['name', 'email', 'departments']);
+
+        return view('Backend.admin.users.edit', compact('user', 'departments', 'historyNameEmail', 'historyOther'));
     }
 
     public function update(Request $request, User $user)
@@ -130,6 +138,10 @@ class UserController extends Controller
             'role.in'            => 'Wybierz prawidłową rolę.',
         ]);
 
+        // Capture changes before saving
+        $changesToLog = [];
+        $oldDepts = $user->departments->pluck('Nazwa')->sort()->implode(', ');
+
         $user->name  = $validated['name'];
         $user->email = $validated['email'];
 
@@ -150,12 +162,62 @@ class UserController extends Controller
             $user->is_active = $request->has('is_active');
         }
 
+        // Compare model attributes
+        $fieldsToCompare = ['name', 'email', 'role', 'two_factor_enabled', 'is_active'];
+        foreach ($fieldsToCompare as $field) {
+            if ($user->isDirty($field)) {
+                $oldVal = $user->getOriginal($field);
+                $newVal = $user->getAttribute($field);
+
+                if ($field === 'two_factor_enabled' || $field === 'is_active') {
+                    $oldVal = $oldVal ? 'aktywne/włączone' : 'nieaktywne/wyłączone';
+                    $newVal = $newVal ? 'aktywne/włączone' : 'nieaktywne/wyłączone';
+                }
+
+                $changesToLog[] = [
+                    'field_name' => $field,
+                    'old_value' => $oldVal,
+                    'new_value' => $newVal,
+                ];
+            }
+        }
+
+        if (!empty($validated['password'])) {
+            $changesToLog[] = [
+                'field_name' => 'password',
+                'old_value' => '—',
+                'new_value' => 'Zmieniono hasło',
+            ];
+        }
+
         $user->save();
 
         if (isset($validated['departments'])) {
             $user->departments()->sync($validated['departments']);
         } else {
             $user->departments()->detach();
+        }
+
+        // Compare departments after sync
+        $user->load('departments');
+        $newDepts = $user->departments->pluck('Nazwa')->sort()->implode(', ');
+        if ($oldDepts !== $newDepts) {
+            $changesToLog[] = [
+                'field_name' => 'departments',
+                'old_value' => $oldDepts ?: 'Brak',
+                'new_value' => $newDepts ?: 'Brak',
+            ];
+        }
+
+        // Save logs to database
+        foreach ($changesToLog as $log) {
+            \App\Models\UserChangeLog::create([
+                'user_id' => $user->id,
+                'editor_id' => auth()->id(),
+                'field_name' => $log['field_name'],
+                'old_value' => $log['old_value'],
+                'new_value' => $log['new_value'],
+            ]);
         }
 
         UserActivity::log('update_user', "Zaktualizowano dane użytkownika: {$user->email}");
@@ -218,5 +280,217 @@ class UserController extends Controller
         UserActivity::log('delete_user', "Usunięto użytkownika: {$name}");
 
         return redirect()->route('users.index')->with('success', "Użytkownik {$name} został usunięty.");
+    }
+
+    public function csvView()
+    {
+        $role = auth()->user()->role ?? 'none';
+        if ($role !== 'admin') {
+            abort(403, 'Brak dostępu.');
+        }
+
+        return view('Backend.admin.users.csv');
+    }
+
+    public function csvPattern()
+    {
+        $role = auth()->user()->role ?? 'none';
+        if ($role !== 'admin') {
+            abort(403, 'Brak dostępu.');
+        }
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="wzor_uzytkownicy.csv"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0'
+        ];
+
+        $callback = function() {
+            $file = fopen('php://output', 'w');
+            // Write UTF-8 BOM
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            fputcsv($file, ['imię_i_nazwisko', 'email', 'rola', 'status', 'wydziały']);
+            fputcsv($file, ['Jan Kowalski', 'jan.kowalski@example.com', 'user', 'aktywny', 'Wydział IT, Wydział Finansów']);
+            
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function csvExport()
+    {
+        $role = auth()->user()->role ?? 'none';
+        if ($role !== 'admin') {
+            abort(403, 'Brak dostępu.');
+        }
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="uzytkownicy.csv"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0'
+        ];
+
+        $users = User::with('departments')->get();
+
+        $callback = function() use ($users) {
+            $file = fopen('php://output', 'w');
+            // Write UTF-8 BOM
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            fputcsv($file, ['imię_i_nazwisko', 'email', 'rola', 'status', 'wydziały']);
+
+            foreach ($users as $user) {
+                $status = $user->is_active ? 'aktywny' : 'nieaktywny';
+                $depts = $user->departments->pluck('Nazwa')->implode(', ');
+                fputcsv($file, [
+                    $user->name,
+                    $user->email,
+                    $user->role,
+                    $status,
+                    $depts
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function csvImport(Request $request)
+    {
+        $role = auth()->user()->role ?? 'none';
+        if ($role !== 'admin') {
+            abort(403, 'Brak dostępu.');
+        }
+
+        $request->validate([
+            'csv_file' => 'required|file|max:2048',
+        ]);
+
+        $file = $request->file('csv_file');
+        $path = $file->getRealPath();
+
+        $handle = fopen($path, 'r');
+        if (!$handle) {
+            return back()->with('error', 'Nie można otworzyć pliku CSV.');
+        }
+
+        // Read BOM if exists
+        $bom = fread($handle, 3);
+        if ($bom !== chr(0xEF).chr(0xBB).chr(0xBF)) {
+            rewind($handle);
+        }
+
+        // Read header
+        $header = fgetcsv($handle, 1000, ',');
+        
+        if (!$header || count($header) < 4) {
+            fclose($handle);
+            return back()->with('error', 'Niepoprawny format nagłówków CSV. Wymagane kolumny: imię_i_nazwisko, email, rola, status, wydziały.');
+        }
+
+        // Standardize column names (remove spaces and lowercase)
+        $header = array_map(function($h) {
+            return trim(strtolower($h));
+        }, $header);
+
+        $nameIdx = array_search('imię_i_nazwisko', $header);
+        if ($nameIdx === false) $nameIdx = array_search('imie_i_nazwisko', $header);
+        $emailIdx = array_search('email', $header);
+        $roleIdx = array_search('rola', $header);
+        $statusIdx = array_search('status', $header);
+        $deptsIdx = array_search('wydziały', $header);
+        if ($deptsIdx === false) $deptsIdx = array_search('wydzialy', $header);
+
+        if ($nameIdx === false || $emailIdx === false || $roleIdx === false || $statusIdx === false) {
+            fclose($handle);
+            return back()->with('error', 'Nie znaleziono wymaganych kolumn w CSV (imię_i_nazwisko, email, rola, status).');
+        }
+
+        $importedCount = 0;
+        $errors = [];
+        $lineNum = 1;
+
+        while (($row = fgetcsv($handle, 1000, ',')) !== false) {
+            $lineNum++;
+            if (empty(array_filter($row))) continue; // Skip empty rows
+
+            $name = trim($row[$nameIdx] ?? '');
+            $email = trim($row[$emailIdx] ?? '');
+            $userRole = trim(strtolower($row[$roleIdx] ?? 'user'));
+            $statusStr = trim(strtolower($row[$statusIdx] ?? 'aktywny'));
+            $deptsStr = $deptsIdx !== false ? trim($row[$deptsIdx] ?? '') : '';
+
+            if (!$name || !$email) {
+                $errors[] = "Wiersz {$lineNum}: Brak imienia i nazwiska lub adresu email.";
+                continue;
+            }
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = "Wiersz {$lineNum}: Niepoprawny format email ({$email}).";
+                continue;
+            }
+
+            // Check if user already exists
+            if (User::where('email', $email)->exists()) {
+                $errors[] = "Wiersz {$lineNum}: Użytkownik o adresie email {$email} już istnieje.";
+                continue;
+            }
+
+            // Generate secure random password
+            $rawPassword = \Illuminate\Support\Str::random(12);
+            $isActive = in_array($statusStr, ['aktywny', 'active', '1', 'tak']);
+
+            if (!in_array($userRole, ['admin', 'mod', 'user', 'none'])) {
+                $userRole = 'user';
+            }
+
+            // Create user
+            $newUser = User::create([
+                'name' => $name,
+                'email' => $email,
+                'password' => Hash::make($rawPassword),
+                'role' => $userRole,
+                'is_active' => $isActive,
+            ]);
+
+            // Assign departments
+            if ($deptsStr) {
+                $deptNames = array_map('trim', explode(',', $deptsStr));
+                $deptIds = [];
+                foreach ($deptNames as $dName) {
+                    if (!$dName) continue;
+                    // Find or create department
+                    $dept = Departament::firstOrCreate(
+                        ['Nazwa' => $dName],
+                        ['Description' => 'Wydział utworzony automatycznie podczas importu CSV.']
+                    );
+                    $deptIds[] = $dept->ID_Departament;
+                }
+                if (!empty($deptIds)) {
+                    $newUser->departments()->sync($deptIds);
+                }
+            }
+
+            // Log import activity
+            UserActivity::log('import_user', "Zaimportowano użytkownika: {$name} ({$email}) z wygenerowanym hasłem: {$rawPassword}");
+            $importedCount++;
+        }
+
+        fclose($handle);
+
+        $msg = "Pomyślnie zaimportowano {$importedCount} użytkowników.";
+        if (!empty($errors)) {
+            return back()->with('success', $msg)->with('warnings', $errors);
+        }
+
+        return back()->with('success', $msg);
     }
 }

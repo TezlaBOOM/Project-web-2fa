@@ -9,6 +9,7 @@ use App\Models\PModul;
 use App\Models\POperacje;
 use App\Models\PAccess;
 use App\Models\Departament;
+use Illuminate\Http\UploadedFile;
 
 class PAccessControllerTest extends TestCase
 {
@@ -49,7 +50,7 @@ class PAccessControllerTest extends TestCase
 
         $access = PAccess::first();
         $response = $this->actingAs($admin)->delete(route('access.destroy', $access->id));
-        $response->assertRedirect(route('access.index'));
+        $response->assertRedirect(route('access.index', ['user_id' => $access->user_id]));
         $this->assertDatabaseMissing('P_access', ['id' => $access->id]);
     }
 
@@ -72,7 +73,7 @@ class PAccessControllerTest extends TestCase
             'p_operacje_id' => $operacja->id,
         ]);
 
-        $response->assertSessionHasErrors(['error' => 'Ten użytkownik posiada już takie uprawnienie.']);
+        $response->assertSessionHasErrors(['error' => 'Ten użytkownik posiada już takie aktywne uprawnienie.']);
     }
 
     public function test_mod_can_only_view_accesses_for_their_department_users()
@@ -229,5 +230,126 @@ class PAccessControllerTest extends TestCase
         // Admin has access to everything
         $admin = $this->createAdmin();
         $this->assertTrue($admin->hasActiveAccess('ERP', 'Edycja'));
+    }
+
+    public function test_p_access_history_archiving_and_multiple_assignments()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['role' => 'user']);
+        $modul = PModul::create(['nazwa' => 'Modul Historyczny']);
+        $operacja = POperacje::create(['nazwa' => 'Test']);
+
+        // Create initial access
+        $response = $this->actingAs($admin)->post(route('access.store'), [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => now()->toDateString(),
+            'valid_to' => now()->addDays(5)->toDateString(),
+            'login' => 'user_login',
+            'uwagi' => 'Jakieś uwagi',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('p_access_history', [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'action' => 'nadano',
+        ]);
+
+        // Manually update P_access dates to expire it
+        $access = PAccess::where('user_id', $user->id)->first();
+        $access->update([
+            'valid_from' => now()->subDays(10)->toDateString(),
+            'valid_to' => now()->subDays(5)->toDateString(),
+        ]);
+
+        // Assigning same access again should archive expired one and create a new active one
+        $response = $this->actingAs($admin)->post(route('access.store'), [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => now()->toDateString(),
+            'valid_to' => now()->addDays(10)->toDateString(),
+            'login' => 'user_login_2',
+            'uwagi' => 'Nowe uwagi',
+        ]);
+
+        $response->assertRedirect();
+        
+        // Assert expired was archived with 'wygasło' action
+        $this->assertDatabaseHas('p_access_history', [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'action' => 'wygasło',
+        ]);
+
+        // Assert new access history entry was created
+        $this->assertDatabaseHas('p_access_history', [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'action' => 'nadano',
+            'login' => 'user_login_2',
+        ]);
+
+        // Fetch history via AJAX
+        $response = $this->actingAs($admin)->getJson(route('access.history', [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+        ]));
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('success', true);
+        $this->assertCount(3, $response->json('history')); // 'nadano' first, 'wygasło' second, 'nadano' third
+    }
+
+    public function test_access_csv_features()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['email' => 'import_access@test.pl', 'role' => 'user']);
+        
+        // 1. View is restricted
+        $response = $this->actingAs($admin)->get(route('access.csv'));
+        $response->assertStatus(200);
+
+        // 2. Pattern download
+        $response = $this->actingAs($admin)->get(route('access.csv.pattern'));
+        $response->assertStatus(200);
+        $this->assertStringContainsString('email_użytkownika,nazwa_modułu,nazwa_operacji', $response->streamedContent());
+
+        // 3. Import CSV
+        $csvData = "email_użytkownika,nazwa_modułu,nazwa_operacji,ważne_od,ważne_do,login,uwagi\n" .
+                   "import_access@test.pl,Modul Nowy,Edycja,2026-08-01,2026-12-31,implogin,impuwagi\n";
+        
+        $file = UploadedFile::fake()->createWithContent('access.csv', $csvData);
+
+        $response = $this->actingAs($admin)->post(route('access.csv.import'), [
+            'csv_file' => $file,
+        ]);
+
+        $response->assertRedirect();
+        
+        // Check active access created
+        $this->assertDatabaseHas('P_access', [
+            'user_id' => $user->id,
+            'login' => 'implogin',
+            'uwagi' => 'impuwagi',
+        ]);
+
+        // Check history logged
+        $this->assertDatabaseHas('p_access_history', [
+            'user_id' => $user->id,
+            'action' => 'nadano',
+            'login' => 'implogin',
+        ]);
+
+        // 4. Export CSV
+        $response = $this->actingAs($admin)->get(route('access.csv.export'));
+        $response->assertStatus(200);
+        $this->assertStringContainsString('import_access@test.pl,"Modul Nowy",Edycja', $response->streamedContent());
     }
 }

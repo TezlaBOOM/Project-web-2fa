@@ -200,3 +200,14 @@ body {
     0%, 100% { transform: translateY(0) scale(1); }
     50% { transform: translateY(-20px) scale(1.05); }
 }
+
+select, select.form-control {
+    background-color: var(--surface) !important;
+    color: var(--text-main) !important;
+    color-scheme: dark !important;
+}
+
+select option, select.form-control option {
+    background-color: var(--surface) !important;
+    color: var(--text-main) !important;
+}

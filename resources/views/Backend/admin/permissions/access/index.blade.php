@@ -188,57 +188,54 @@
 
                         <div style="display: grid; gap: 0.75rem;">
                             @foreach($tree as $rootName => $children)
-                                <div class="card" style="padding: 0; overflow: hidden;">
-                                    {{-- Nagłówek root --}}
-                                    <div style="padding: 0.8rem 1.1rem; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.6rem;">
-                                        <span style="font-size: 0.85rem;">📦</span>
-                                        <span style="font-weight: 600; color: var(--text-color); font-size: 0.88rem;">{{ $rootName }}</span>
+                                <div class="module-wrapper">
+                                    <!-- Sekcja Głównego Modułu -->
+                                    <div class="module-header" style="cursor: pointer;" onclick="toggleModuleContent(this)">
+                                        <div class="module-controls">
+                                            <span class="arrow-icon">▼</span>
+                                        </div>
+                                        <div class="module-title">{{ $rootName }}</div>
                                     </div>
 
-                                    <div style="padding: 0.65rem 1.1rem; display: grid; gap: 0.5rem;">
+                                    <!-- Sekcja Podmodułów (Kontener rozwijany) -->
+                                    <div class="module-content">
                                         @foreach($children as $childName => $accesses)
-                                            <div>
-                                                @if($childName !== '__root__')
-                                                    {{-- Podmoduł --}}
-                                                    <div style="display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.35rem;">
-                                                        <span style="color: var(--text-muted); font-size: 0.75rem; padding-left: 0.5rem;">↳</span>
-                                                        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">{{ $childName }}</span>
+                                            @foreach($accesses as $access)
+                                                @php $isValid = $access->isValid(); @endphp
+                                                <!-- Pojedynczy podmoduł (wiersz) -->
+                                                <div class="submodule-item">
+                                                    <div class="submodule-icon-area">
+                                                        🔑
                                                     </div>
-                                                @endif
-                                                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; {{ $childName !== '__root__' ? 'padding-left: 1.3rem;' : '' }}">
-                                                    @foreach($accesses as $access)
-                                                        @php $isValid = $access->isValid(); @endphp
-                                                        <div class="perm-capsule" style="display: inline-flex; align-items: center; background: {{ $isValid ? 'rgba(99, 102, 241, 0.05)' : 'rgba(239, 68, 68, 0.05)' }}; border: 1px solid {{ $isValid ? 'rgba(99, 102, 241, 0.18)' : 'rgba(239, 68, 68, 0.2)' }}; border-radius: 999px; padding: 0.22rem 0.45rem 0.22rem 0.75rem; gap: 0.4rem; transition: all 0.15s; margin-bottom: 0.2rem;" onmouseover="this.style.borderColor='{{ $isValid ? 'rgba(99, 102, 241, 0.4)' : 'rgba(239, 68, 68, 0.4)' }}'; this.style.background='{{ $isValid ? 'rgba(99, 102, 241, 0.1)' : 'rgba(239, 68, 68, 0.1)' }}'" onmouseout="this.style.borderColor='{{ $isValid ? 'rgba(99, 102, 241, 0.18)' : 'rgba(239, 68, 68, 0.2)' }}'; this.style.background='{{ $isValid ? 'rgba(99, 102, 241, 0.05)' : 'rgba(239, 68, 68, 0.05)' }}'">
-                                                            {{-- Operation Name and Dates --}}
-                                                            <span style="color: {{ $isValid ? 'var(--text-color)' : 'var(--danger)' }}; font-size: 0.8rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                                                {{ $access->operacja->nazwa ?? '—' }}
-                                                                @if($access->valid_from || $access->valid_to)
-                                                                    <span style="font-size: 0.72rem; opacity: 0.75; font-weight: 400; color: var(--text-muted);">
-                                                                        ({{ $access->valid_from ? $access->valid_from->format('Y-m-d') : '∞' }} do {{ $access->valid_to ? $access->valid_to->format('Y-m-d') : '∞' }})
-                                                                    </span>
-                                                                @endif
-                                                                @if(!$isValid)
-                                                                    <span style="font-size: 0.6rem; background: rgba(239,68,68,0.18); color: var(--danger); padding: 0.05rem 0.3rem; border-radius: 3px; font-weight: 700; text-transform: uppercase; margin-left: 0.15rem;">Wygasło</span>
-                                                                @endif
-                                                            </span>
-
-                                                            {{-- Admin Actions Divider and Buttons inside the capsule --}}
-                                                            @if($role === 'admin')
-                                                                <span style="width: 1px; height: 12px; background: {{ $isValid ? 'rgba(99, 102, 241, 0.25)' : 'rgba(239, 68, 68, 0.25)' }}; margin: 0 0.1rem;"></span>
-                                                                <div style="display: inline-flex; align-items: center; gap: 0.35rem; padding-right: 0.2rem;">
-                                                                    <a href="{{ route('access.edit', $access->id) }}" title="Edytuj uprawnienie" style="color: var(--text-muted); text-decoration: none; font-size: 0.75rem; display: inline-flex; align-items: center; transition: color 0.12s; padding: 0.15rem;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">✏️</a>
-                                                                    
-                                                                    <form action="{{ route('access.destroy', $access->id) }}" method="POST" style="margin: 0; display: inline-flex; align-items: center;" onsubmit="return confirm('Usunąć to uprawnienie?');">
-                                                                        @csrf
-                                                                        @method('DELETE')
-                                                                        <button type="submit" title="Usuń" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.15rem; font-size: 0.75rem; line-height: 1; display: inline-flex; align-items: center; transition: color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
-                                                                    </form>
-                                                                </div>
-                                                            @endif
+                                                    <div class="submodule-label-area">
+                                                        <div class="submodule-label" title="{{ $childName === '__root__' ? $rootName : $childName }} — {{ $access->operacja->nazwa ?? '—' }}">
+                                                            {{ $childName === '__root__' ? $rootName : $childName }}
                                                         </div>
-                                                    @endforeach
+                                                    </div>
+                                                    <div class="submodule-status-area">
+                                                        <div>Status:</div>
+                                                        <div class="{{ $isValid ? 'submodule-status-active' : 'submodule-status-inactive' }}">
+                                                            {{ $isValid ? 'Aktywny' : 'Nieaktywny' }}
+                                                        </div>
+                                                    </div>
+                                                    <div class="submodule-date-area">
+                                                        <div>od: {{ $access->valid_from ? $access->valid_from->format('Y-m-d') : '∞' }}</div>
+                                                        <div>do: {{ $access->valid_to ? $access->valid_to->format('Y-m-d') : '∞' }}</div>
+                                                    </div>
+                                                    <div class="submodule-action-area">
+                                                        <a href="#" class="action-link" onclick="openMoreInfo({{ $access->user_id }}, {{ $access->p_modul_id }}, {{ $access->p_operacje_id }}, '{{ ($childName === '__root__' ? $rootName : $childName) . ' — ' . ($access->operacja->nazwa ?? '') }}'); return false;">więcej info</a>
+                                                        @if($role === 'admin')
+                                                            <a href="{{ route('access.edit', $access->id) }}" title="Edytuj uprawnienie" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.15rem; transition: color 0.12s; display: inline-flex;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">✏️</a>
+                                                            
+                                                            <form action="{{ route('access.destroy', $access->id) }}" method="POST" style="margin: 0; display: inline-flex; align-items: center;" onsubmit="return confirm('Usunąć to uprawnienie?');">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit" title="Usuń" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.15rem; font-size: 0.85rem; line-height: 1; transition: color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
+                                                            </form>
+                                                        @endif
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            @endforeach
                                         @endforeach
                                     </div>
                                 </div>
@@ -262,10 +259,64 @@
                 </div>
             @endif
         </div>
+
+        {{-- Dialog modal "Więcej info" --}}
+        <dialog id="history-dialog" style="border: none; border-radius: 12px; background: var(--surface); color: var(--text-main); padding: 1.75rem 2rem; max-width: 600px; width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); outline: none; border: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1.25rem;">
+                <h2 id="dialog-title" style="font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin: 0;">Więcej informacji o uprawnieniu</h2>
+                <button onclick="document.getElementById('history-dialog').close()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.25rem; line-height: 1; padding: 0; display: inline-flex;">✕</button>
+            </div>
+
+            <div style="display: grid; gap: 1.25rem;">
+                <!-- Aktywne dane -->
+                <div id="dialog-active-info" style="background: rgba(99, 102, 241, 0.05); border: 1px solid rgba(99, 102, 241, 0.15); border-radius: 8px; padding: 0.85rem 1.1rem; font-size: 0.82rem;">
+                    <h3 style="font-size: 0.85rem; margin-top: 0; margin-bottom: 0.5rem; color: var(--primary); font-weight: 600;">Aktualny stan dostępu</h3>
+                    <div style="display: grid; grid-template-columns: 100px 1fr; gap: 0.4rem; line-height: 1.4;">
+                        <div style="color: var(--text-muted); font-weight: 500;">Status:</div>
+                        <div id="active-status" style="font-weight: 600;">—</div>
+                        
+                        <div style="color: var(--text-muted); font-weight: 500;">Login:</div>
+                        <div id="active-login">—</div>
+
+                        <div style="color: var(--text-muted); font-weight: 500;">Ważność:</div>
+                        <div id="active-validity">—</div>
+
+                        <div style="color: var(--text-muted); font-weight: 500;">Uwagi:</div>
+                        <div id="active-uwagi" style="white-space: pre-wrap;">—</div>
+                    </div>
+                </div>
+
+                <!-- Tabela historyczna -->
+                <div>
+                    <h3 style="font-size: 0.85rem; margin-bottom: 0.5rem; color: var(--text-main); font-weight: 600;">Archiwum i historia operacji</h3>
+                    <div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,0.15);">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); color: var(--text-muted);">
+                                    <th style="padding: 0.5rem; font-weight: 500;">Data</th>
+                                    <th style="padding: 0.5rem; font-weight: 500;">Akcja</th>
+                                    <th style="padding: 0.5rem; font-weight: 500;">Login</th>
+                                    <th style="padding: 0.5rem; font-weight: 500;">Okres</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body">
+                                <!-- Wiersze wstawiane przez JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </dialog>
     </main>
 @endsection
 
 @push('scripts')
+<style>
+    dialog::backdrop {
+        background-color: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(4px);
+    }
+</style>
 <script>
     const searchInput = document.getElementById('search-input');
     let debounceTimer;
@@ -282,5 +333,84 @@
         el.addEventListener('mouseover', () => el.style.background = 'rgba(255,255,255,0.03)');
         el.addEventListener('mouseout',  () => el.style.background = 'transparent');
     });
+
+    // Toggle module-content
+    function toggleModuleContent(header) {
+        const content = header.nextElementSibling;
+        const arrow = header.querySelector('.arrow-icon');
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            arrow.textContent = '▼';
+        } else {
+            content.style.display = 'none';
+            arrow.textContent = '▶';
+        }
+    }
+
+    // Więcej info modal handler
+    function openMoreInfo(userId, modulId, operacjeId, title) {
+        document.getElementById('dialog-title').textContent = title;
+        
+        const dialog = document.getElementById('history-dialog');
+        const activeInfo = document.getElementById('dialog-active-info');
+        const historyBody = document.getElementById('history-table-body');
+        
+        // Reset content
+        document.getElementById('active-status').textContent = 'Ładowanie...';
+        document.getElementById('active-login').textContent = '—';
+        document.getElementById('active-validity').textContent = '—';
+        document.getElementById('active-uwagi').textContent = '—';
+        historyBody.innerHTML = '<tr><td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">Ładowanie historii...</td></tr>';
+        
+        dialog.showModal();
+
+        fetch(`/permissions/access/history?user_id=${userId}&p_modul_id=${modulId}&p_operacje_id=${operacjeId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Update active state
+                    if (data.active) {
+                        activeInfo.style.display = 'block';
+                        const statusEl = document.getElementById('active-status');
+                        statusEl.textContent = data.active.status;
+                        statusEl.className = data.active.status === 'Aktywny' ? 'submodule-status-active' : 'submodule-status-inactive';
+                        document.getElementById('active-login').textContent = data.active.login || 'Brak';
+                        document.getElementById('active-validity').textContent = `od ${data.active.valid_from} do ${data.active.valid_to}`;
+                        document.getElementById('active-uwagi').textContent = data.active.uwagi || 'Brak uwag';
+                    } else {
+                        activeInfo.style.display = 'none';
+                    }
+
+                    // Update history table
+                    historyBody.innerHTML = '';
+                    if (data.history.length === 0) {
+                        historyBody.innerHTML = '<tr><td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">Brak wpisów w historii.</td></tr>';
+                    } else {
+                        data.history.forEach(item => {
+                            const tr = document.createElement('tr');
+                            tr.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+                            
+                            let actionColor = 'var(--text-main)';
+                            if (item.action.toLowerCase() === 'nadano') actionColor = 'var(--success)';
+                            if (item.action.toLowerCase() === 'odebrano') actionColor = 'var(--danger)';
+                            if (item.action.toLowerCase() === 'wygasło') actionColor = '#94a3b8';
+                            if (item.action.toLowerCase() === 'zaktualizowano') actionColor = 'var(--primary)';
+                            
+                            tr.innerHTML = `
+                                <td style="padding: 0.5rem; color: var(--text-muted);" title="Uwagi: ${item.uwagi}">${item.date}</td>
+                                <td style="padding: 0.5rem; font-weight: 600; color: ${actionColor};" title="Uwagi: ${item.uwagi}">${item.action}</td>
+                                <td style="padding: 0.5rem;" title="Uwagi: ${item.uwagi}">${item.login}</td>
+                                <td style="padding: 0.5rem;" title="Uwagi: ${item.uwagi}">od ${item.valid_from} do ${item.valid_to}</td>
+                            `;
+                            historyBody.appendChild(tr);
+                        });
+                    }
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                historyBody.innerHTML = '<tr><td colspan="4" style="padding: 1rem; text-align: center; color: var(--danger);">Błąd podczas ładowania danych.</td></tr>';
+            });
+    }
 </script>
 @endpush

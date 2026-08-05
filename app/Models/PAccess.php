@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PAccess extends Model
 {
     protected $table = 'P_access';
-    protected $fillable = ['user_id', 'p_modul_id', 'p_operacje_id', 'valid_from', 'valid_to'];
+    protected $fillable = ['user_id', 'p_modul_id', 'p_operacje_id', 'valid_from', 'valid_to', 'login', 'uwagi'];
 
     protected $casts = [
         'valid_from' => 'date',

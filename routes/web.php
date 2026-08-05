@@ -81,6 +81,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/2fa', [SettingsController::class, 'toggle2fa'])->name('settings.2fa.toggle');
     Route::get('/settings/logon', [SettingsController::class, 'logon'])->name('settings.logon');
     Route::post('/settings/logon', [SettingsController::class, 'updateLogon'])->name('settings.logon.update');
+    Route::get('/users/csv', [UserController::class, 'csvView'])->name('users.csv');
+    Route::get('/users/csv/pattern', [UserController::class, 'csvPattern'])->name('users.csv.pattern');
+    Route::get('/users/csv/export', [UserController::class, 'csvExport'])->name('users.csv.export');
+    Route::post('/users/csv/import', [UserController::class, 'csvImport'])->name('users.csv.import');
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
     Route::post('/users', [UserController::class, 'store'])->name('users.store');
@@ -100,6 +104,11 @@ Route::middleware('auth')->group(function () {
     // Uprawnienia (Permissions)
     Route::resource('/permissions/modules', PModulController::class)->except(['show']);
     Route::resource('/permissions/operations', POperacjeController::class)->except(['show']);
+    Route::get('/permissions/access/csv', [PAccessController::class, 'csvView'])->name('access.csv');
+    Route::get('/permissions/access/csv/pattern', [PAccessController::class, 'csvPattern'])->name('access.csv.pattern');
+    Route::get('/permissions/access/csv/export', [PAccessController::class, 'csvExport'])->name('access.csv.export');
+    Route::post('/permissions/access/csv/import', [PAccessController::class, 'csvImport'])->name('access.csv.import');
+    Route::get('/permissions/access/history', [PAccessController::class, 'getHistory'])->name('access.history');
     Route::resource('/permissions/access', PAccessController::class)->except(['show']);
 
     // Dokumenty (Documents)

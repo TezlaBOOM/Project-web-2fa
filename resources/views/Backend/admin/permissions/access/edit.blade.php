@@ -70,6 +70,20 @@
                         </div>
                     </div>
 
+                    <!-- Login -->
+                    <div class="form-group">
+                        <label for="login" class="form-label">Login</label>
+                        <input type="text" name="login" id="login" class="form-control" value="{{ old('login', $access->login) }}" placeholder="np. jkowalski">
+                        @error('login') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
+                    </div>
+
+                    <!-- Uwagi -->
+                    <div class="form-group">
+                        <label for="uwagi" class="form-label">Uwagi</label>
+                        <textarea name="uwagi" id="uwagi" class="form-control" placeholder="Dodatkowe informacje, uwagi..." rows="3">{{ old('uwagi', $access->uwagi) }}</textarea>
+                        @error('uwagi') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
+                    </div>
+
                     <div style="margin-top: 2rem;">
                         <button type="submit" class="btn-primary">Zapisz zmiany</button>
                     </div>

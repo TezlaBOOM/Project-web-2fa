@@ -280,14 +280,15 @@ body {
 }
 
 /* Ensure select dropdown options have dark background and light text */
-select.form-control {
-    background-color: var(--surface);
-    color-scheme: dark;
+select, select.form-control {
+    background-color: var(--surface) !important;
+    color: var(--text-main) !important;
+    color-scheme: dark !important;
 }
 
-select.form-control option {
-    background-color: var(--surface);
-    color: var(--text-main);
+select option, select.form-control option {
+    background-color: var(--surface) !important;
+    color: var(--text-main) !important;
 }
 
 .form-control:focus {
@@ -473,5 +474,150 @@ select.form-control option {
 
 .nav-submenu-link.active::before {
     opacity: 1;
+}
+
+/* Module Wrapper layout for Access Tab */
+.module-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.module-header {
+    background: rgba(255, 255, 255, 0.02);
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+    user-select: none;
+}
+
+.module-header:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.module-controls {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.module-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-main);
+}
+
+.module-content {
+    padding: 0;
+}
+
+/* Submodule row */
+.submodule-item {
+    display: grid;
+    grid-template-columns: 40px 1.5fr 1fr 1.5fr 120px;
+    align-items: center;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    gap: 1rem;
+    transition: background 0.2s;
+}
+
+.submodule-item:last-child {
+    border-bottom: none;
+}
+
+.submodule-item:hover {
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.submodule-icon-area {
+    width: 28px;
+    height: 28px;
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.submodule-label-area {
+    min-width: 0;
+}
+
+.submodule-label {
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: var(--text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.submodule-status-area {
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.submodule-status-area :first-child {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.submodule-status-area :last-child {
+    font-weight: 600;
+}
+
+.submodule-status-active {
+    color: var(--success) !important;
+}
+
+.submodule-status-inactive {
+    color: var(--danger) !important;
+}
+
+.submodule-date-area {
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    color: var(--text-muted);
+}
+
+.submodule-action-area {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.action-link {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    background: rgba(99, 102, 241, 0.1);
+    padding: 0.25rem 0.55rem;
+    border-radius: 6px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.action-link:hover {
+    background: var(--primary);
+    color: white !important;
 }
 

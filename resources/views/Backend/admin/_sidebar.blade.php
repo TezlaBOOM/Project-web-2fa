@@ -23,13 +23,19 @@
             </div>
             <div class="nav-submenu">
                 <a href="{{ route('users.index') }}"
-                   class="nav-submenu-link {{ request()->routeIs('users.*') ? 'active' : '' }}">
+                   class="nav-submenu-link {{ request()->routeIs('users.index') || request()->routeIs('users.create') || request()->routeIs('users.edit') ? 'active' : '' }}">
                     Lista użytkowników
                 </a>
                 <a href="{{ route('departments.index') }}"
                    class="nav-submenu-link {{ request()->routeIs('departments.*') ? 'active' : '' }}">
                     Lista wydziałów
                 </a>
+                @if(auth()->user()->role === 'admin')
+                    <a href="{{ route('users.csv') }}"
+                       class="nav-submenu-link {{ request()->routeIs('users.csv*') ? 'active' : '' }}">
+                        Import / Eksport CSV
+                    </a>
+                @endif
             </div>
         </div>
 
@@ -53,9 +59,15 @@
                         </a>
                     @endif
                     <a href="{{ route('access.index') }}"
-                       class="nav-submenu-link {{ request()->routeIs('access.*') ? 'active' : '' }}">
+                       class="nav-submenu-link {{ request()->routeIs('access.*') && !request()->routeIs('access.csv*') ? 'active' : '' }}">
                         Dostęp
                     </a>
+                    @if(auth()->user()->role === 'admin')
+                        <a href="{{ route('access.csv') }}"
+                           class="nav-submenu-link {{ request()->routeIs('access.csv*') ? 'active' : '' }}">
+                            Import / Eksport CSV
+                        </a>
+                    @endif
                 </div>
             </div>
         @endif

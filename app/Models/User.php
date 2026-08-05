@@ -52,6 +52,11 @@ class User extends Authenticatable
         return $this->hasMany(PAccess::class, 'user_id');
     }
 
+    public function changeLogs()
+    {
+        return $this->hasMany(UserChangeLog::class, 'user_id');
+    }
+
     public function hasActiveAccess($moduleName, $operationName)
     {
         if ($this->role === 'admin') {
