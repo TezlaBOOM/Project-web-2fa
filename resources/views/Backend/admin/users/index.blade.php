@@ -38,6 +38,19 @@
                 </a>
             </div>
             <div class="card-body" style="padding: 1.5rem;">
+                <!-- Wyszukiwarka -->
+                <form method="GET" action="{{ route('users.index') }}" id="search-form" style="margin-bottom: 1.25rem; display: flex; gap: 0.5rem; align-items: center;">
+                    <div style="position: relative; flex: 1; max-width: 400px;">
+                        <input type="text" name="search" id="search-input" value="{{ $search ?? '' }}" 
+                               placeholder="Szukaj po nazwie, emailu lub historii..." 
+                               class="form-control" style="width: 100%; padding-right: 2rem;">
+                        @if(!empty($search))
+                            <a href="{{ route('users.index') }}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); text-decoration: none; font-size: 1.1rem;" title="Wyczyść wyszukiwanie">✕</a>
+                        @endif
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem; font-size: 0.85rem;">Szukaj</button>
+                </form>
+
                 <div style="overflow-x: auto;">
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
@@ -105,3 +118,25 @@
         </div>
     </main>
 @endsection
+
+@push('scripts')
+<script>
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        let debounceTimer;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                document.getElementById('search-form').submit();
+            }, 500);
+        });
+
+        // Set focus to the end of input text
+        const len = searchInput.value.length;
+        if (len > 0) {
+            searchInput.focus();
+            searchInput.setSelectionRange(len, len);
+        }
+    }
+</script>
+@endpush

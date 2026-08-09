@@ -102,4 +102,71 @@ class UserControllerTest extends TestCase
         $zofia = User::where('email', 'zofia@import.pl')->first();
         $this->assertCount(2, $zofia->departments);
     }
+
+    public function test_csv_import_updates_existing_user_by_id()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create([
+            'name' => 'Stary Nazwisko',
+            'email' => 'stary@test.pl',
+            'role' => 'user',
+            'is_active' => true,
+        ]);
+
+        $csvData = "id,imię_i_nazwisko,email,rola,status,wydziały\n" .
+                   "{$user->id},Nowy Nazwisko,stary@test.pl,mod,nieaktywny,\"Wydział Nowy\"\n";
+
+        $file = UploadedFile::fake()->createWithContent('users.csv', $csvData);
+
+        $response = $this->actingAs($admin)->post(route('users.csv.import'), [
+            'csv_file' => $file,
+        ]);
+
+        $response->assertRedirect();
+
+        // Check updated fields
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'name' => 'Nowy Nazwisko',
+            'role' => 'mod',
+            'is_active' => false,
+        ]);
+
+        // Check change logs created
+        $this->assertDatabaseHas('user_change_logs', [
+            'user_id' => $user->id,
+            'field_name' => 'name',
+            'old_value' => 'Stary Nazwisko',
+            'new_value' => 'Nowy Nazwisko',
+        ]);
+    }
+
+    public function test_user_searching_including_history()
+    {
+        $admin = $this->createAdmin();
+        
+        $user = User::factory()->create([
+            'name' => 'Bieżący Użytkownik',
+            'email' => 'current@test.pl',
+        ]);
+
+        // Add history record for name change
+        \App\Models\UserChangeLog::create([
+            'user_id' => $user->id,
+            'editor_id' => $admin->id,
+            'field_name' => 'name',
+            'old_value' => 'Dawne Imię',
+            'new_value' => 'Bieżący Użytkownik',
+        ]);
+
+        // Search by current name
+        $response = $this->actingAs($admin)->get(route('users.index', ['search' => 'Bieżący']));
+        $response->assertStatus(200);
+        $response->assertSee('current@test.pl');
+
+        // Search by historical name
+        $response = $this->actingAs($admin)->get(route('users.index', ['search' => 'Dawne']));
+        $response->assertStatus(200);
+        $response->assertSee('current@test.pl');
+    }
 }

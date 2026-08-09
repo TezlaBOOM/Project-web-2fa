@@ -107,7 +107,8 @@
                 </h3>
                 <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; display: grid; gap: 0.25rem;">
                     <li>Plik musi być zakodowany w formacie <strong>UTF-8</strong> (wzór CSV zawiera odpowiedni marker BOM, zapobiegający problemom z kodowaniem w Excelu).</li>
-                    <li>Wymagane nagłówki kolumn: <code>imię_i_nazwisko</code>, <code>email</code>, <code>rola</code> (admin / mod / user / none), <code>status</code> (aktywny / nieaktywny).</li>
+                    <li>Opcjonalna kolumna <code>id</code>: unikalny identyfikator użytkownika w bazie. Jeśli zostanie podany i istnieje w systemie, dane użytkownika zostaną zaktualizowane i nadpisane nowymi wartościami (umożliwia np. zmianę nazwy lub adresu email bez powstawania duplikatów).</li>
+                    <li>Wymagane nagłówki kolumn przy tworzeniu nowych: <code>imię_i_nazwisko</code>, <code>email</code>, <code>rola</code> (admin / mod / user / none), <code>status</code> (aktywny / nieaktywny).</li>
                     <li>Opcjonalna kolumna <code>wydziały</code> (lub <code>wydzialy</code>): nazwy wydziałów oddzielone przecinkami (np. <code>Wydział IT, Wydział Finansów</code>).</li>
                     <li>Jeśli wydział podany w CSV nie istnieje jeszcze w bazie, zostanie on automatycznie utworzony.</li>
                 </ul>

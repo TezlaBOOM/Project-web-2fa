@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $role = auth()->user()->role ?? 'none';
         
@@ -20,16 +20,31 @@ class UserController extends Controller
             abort(403, 'Brak dostępu.');
         }
 
+        $search = $request->get('search', '');
+
+        $query = User::with('departments');
+
         if ($role === 'mod') {
             $departmentIds = auth()->user()->departments->pluck('ID_Departament');
-            $users = User::with('departments')->whereHas('departments', function($q) use ($departmentIds) {
+            $query->whereHas('departments', function($q) use ($departmentIds) {
                 $q->whereIn('Departament.ID_Departament', $departmentIds);
-            })->get();
-        } else {
-            $users = User::with('departments')->get();
+            });
         }
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhereHas('changeLogs', function($cq) use ($search) {
+                      $cq->whereIn('field_name', ['name', 'email'])
+                         ->where('old_value', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $users = $query->orderBy('name')->get();
         
-        return view("Backend.{$role}.users.index", compact('users'));
+        return view("Backend.{$role}.users.index", compact('users', 'search'));
     }
 
     public function create()
@@ -312,8 +327,8 @@ class UserController extends Controller
             // Write UTF-8 BOM
             fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
             
-            fputcsv($file, ['imię_i_nazwisko', 'email', 'rola', 'status', 'wydziały']);
-            fputcsv($file, ['Jan Kowalski', 'jan.kowalski@example.com', 'user', 'aktywny', 'Wydział IT, Wydział Finansów']);
+            fputcsv($file, ['id', 'imię_i_nazwisko', 'email', 'rola', 'status', 'wydziały']);
+            fputcsv($file, ['', 'Jan Kowalski', 'jan.kowalski@example.com', 'user', 'aktywny', 'Wydział IT, Wydział Finansów']);
             
             fclose($file);
         };
@@ -343,12 +358,13 @@ class UserController extends Controller
             // Write UTF-8 BOM
             fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
             
-            fputcsv($file, ['imię_i_nazwisko', 'email', 'rola', 'status', 'wydziały']);
+            fputcsv($file, ['id', 'imię_i_nazwisko', 'email', 'rola', 'status', 'wydziały']);
 
             foreach ($users as $user) {
                 $status = $user->is_active ? 'aktywny' : 'nieaktywny';
                 $depts = $user->departments->pluck('Nazwa')->implode(', ');
                 fputcsv($file, [
+                    $user->id,
                     $user->name,
                     $user->email,
                     $user->role,
@@ -401,6 +417,7 @@ class UserController extends Controller
             return trim(strtolower($h));
         }, $header);
 
+        $idIdx = array_search('id', $header);
         $nameIdx = array_search('imię_i_nazwisko', $header);
         if ($nameIdx === false) $nameIdx = array_search('imie_i_nazwisko', $header);
         $emailIdx = array_search('email', $header);
@@ -422,6 +439,7 @@ class UserController extends Controller
             $lineNum++;
             if (empty(array_filter($row))) continue; // Skip empty rows
 
+            $id = $idIdx !== false ? trim($row[$idIdx] ?? '') : '';
             $name = trim($row[$nameIdx] ?? '');
             $email = trim($row[$emailIdx] ?? '');
             $userRole = trim(strtolower($row[$roleIdx] ?? 'user'));
@@ -438,50 +456,150 @@ class UserController extends Controller
                 continue;
             }
 
-            // Check if user already exists
-            if (User::where('email', $email)->exists()) {
-                $errors[] = "Wiersz {$lineNum}: Użytkownik o adresie email {$email} już istnieje.";
-                continue;
-            }
-
-            // Generate secure random password
-            $rawPassword = \Illuminate\Support\Str::random(12);
-            $isActive = in_array($statusStr, ['aktywny', 'active', '1', 'tak']);
-
             if (!in_array($userRole, ['admin', 'mod', 'user', 'none'])) {
                 $userRole = 'user';
             }
 
-            // Create user
-            $newUser = User::create([
-                'name' => $name,
-                'email' => $email,
-                'password' => Hash::make($rawPassword),
-                'role' => $userRole,
-                'is_active' => $isActive,
-            ]);
+            $isActive = in_array($statusStr, ['aktywny', 'active', '1', 'tak']);
 
-            // Assign departments
-            if ($deptsStr) {
-                $deptNames = array_map('trim', explode(',', $deptsStr));
-                $deptIds = [];
-                foreach ($deptNames as $dName) {
-                    if (!$dName) continue;
-                    // Find or create department
-                    $dept = Departament::firstOrCreate(
-                        ['Nazwa' => $dName],
-                        ['Description' => 'Wydział utworzony automatycznie podczas importu CSV.']
-                    );
-                    $deptIds[] = $dept->ID_Departament;
+            // Find user by ID or by Email
+            $user = null;
+            if (!empty($id)) {
+                $user = User::find($id);
+                if (!$user) {
+                    $errors[] = "Wiersz {$lineNum}: Użytkownik o ID {$id} nie istnieje w bazie.";
+                    continue;
                 }
-                if (!empty($deptIds)) {
-                    $newUser->departments()->sync($deptIds);
-                }
+            } else {
+                $user = User::where('email', $email)->first();
             }
 
-            // Log import activity
-            UserActivity::log('import_user', "Zaimportowano użytkownika: {$name} ({$email}) z wygenerowanym hasłem: {$rawPassword}");
-            $importedCount++;
+            if ($user) {
+                // Update existing user
+                if ($user->email !== $email) {
+                    if (User::where('email', $email)->where('id', '!=', $user->id)->exists()) {
+                        $errors[] = "Wiersz {$lineNum}: Adres email {$email} jest już zajęty przez innego użytkownika.";
+                        continue;
+                    }
+                }
+
+                $changesToLog = [];
+                $oldDepts = $user->departments->pluck('Nazwa')->sort()->implode(', ');
+
+                $fieldsToCompare = [
+                    'name' => $name,
+                    'email' => $email,
+                    'role' => $userRole,
+                    'is_active' => $isActive
+                ];
+
+                foreach ($fieldsToCompare as $field => $newVal) {
+                    $oldVal = $user->getAttribute($field);
+                    if ($field === 'is_active') {
+                        $oldValBool = (bool)$oldVal;
+                        $newValBool = (bool)$newVal;
+                        if ($oldValBool !== $newValBool) {
+                            $changesToLog[] = [
+                                'field_name' => $field,
+                                'old_value' => $oldValBool ? 'aktywne/włączone' : 'nieaktywne/wyłączone',
+                                'new_value' => $newValBool ? 'aktywne/włączone' : 'nieaktywne/wyłączone',
+                            ];
+                        }
+                    } else {
+                        if ($oldVal !== $newVal) {
+                            $changesToLog[] = [
+                                'field_name' => $field,
+                                'old_value' => $oldVal,
+                                'new_value' => $newVal,
+                            ];
+                        }
+                    }
+                }
+
+                $user->name = $name;
+                $user->email = $email;
+                if ($user->id !== auth()->id()) {
+                    $user->role = $userRole;
+                    $user->is_active = $isActive;
+                }
+                $user->save();
+
+                // Assign departments
+                $deptIds = [];
+                if ($deptsStr) {
+                    $deptNames = array_map('trim', explode(',', $deptsStr));
+                    foreach ($deptNames as $dName) {
+                        if (!$dName) continue;
+                        $dept = Departament::firstOrCreate(
+                            ['Nazwa' => $dName],
+                            ['Description' => 'Wydział utworzony automatycznie podczas importu CSV.']
+                        );
+                        $deptIds[] = $dept->ID_Departament;
+                    }
+                }
+                $user->departments()->sync($deptIds);
+
+                $user->load('departments');
+                $newDepts = $user->departments->pluck('Nazwa')->sort()->implode(', ');
+                if ($oldDepts !== $newDepts) {
+                    $changesToLog[] = [
+                        'field_name' => 'departments',
+                        'old_value' => $oldDepts ?: 'Brak',
+                        'new_value' => $newDepts ?: 'Brak',
+                    ];
+                }
+
+                foreach ($changesToLog as $log) {
+                    \App\Models\UserChangeLog::create([
+                        'user_id' => $user->id,
+                        'editor_id' => auth()->id(),
+                        'field_name' => $log['field_name'],
+                        'old_value' => $log['old_value'],
+                        'new_value' => $log['new_value'],
+                    ]);
+                }
+
+                UserActivity::log('update_user', "Zaimportowano (aktualizacja): zaktualizowano dane użytkownika {$user->email} przez import CSV.");
+                $importedCount++;
+
+            } else {
+                // Check if email already exists
+                if (User::where('email', $email)->exists()) {
+                    $errors[] = "Wiersz {$lineNum}: Użytkownik o adresie email {$email} już istnieje.";
+                    continue;
+                }
+
+                // Create user
+                $rawPassword = \Illuminate\Support\Str::random(12);
+                $newUser = User::create([
+                    'name' => $name,
+                    'email' => $email,
+                    'password' => Hash::make($rawPassword),
+                    'role' => $userRole,
+                    'is_active' => $isActive,
+                ]);
+
+                // Assign departments
+                if ($deptsStr) {
+                    $deptNames = array_map('trim', explode(',', $deptsStr));
+                    $deptIds = [];
+                    foreach ($deptNames as $dName) {
+                        if (!$dName) continue;
+                        $dept = Departament::firstOrCreate(
+                            ['Nazwa' => $dName],
+                            ['Description' => 'Wydział utworzony automatycznie podczas importu CSV.']
+                        );
+                        $deptIds[] = $dept->ID_Departament;
+                    }
+                    if (!empty($deptIds)) {
+                        $newUser->departments()->sync($deptIds);
+                    }
+                }
+
+                // Log import activity
+                UserActivity::log('import_user', "Zaimportowano (nowy): Utworzono użytkownika {$name} ({$email}) z wygenerowanym hasłem: {$rawPassword}");
+                $importedCount++;
+            }
         }
 
         fclose($handle);

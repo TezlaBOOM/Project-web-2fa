@@ -41,7 +41,11 @@ class PAccessController extends Controller
         if ($search) {
             $baseQuery->where(function($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhereHas('changeLogs', function($cq) use ($search) {
+                      $cq->whereIn('field_name', ['name', 'email'])
+                         ->where('old_value', 'like', "%{$search}%");
+                  });
             });
         }
 
@@ -296,7 +300,7 @@ class PAccessController extends Controller
             fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
             
             fputcsv($file, ['email_użytkownika', 'nazwa_modułu', 'nazwa_operacji', 'ważne_od', 'ważne_do', 'login', 'uwagi']);
-            fputcsv($file, ['jan.kowalski@example.com', 'ERP', 'Podgląd', '2026-08-01', '2026-12-31', 'jkowalski', 'Dostęp testowy']);
+            fputcsv($file, ['jan.kowalski@example.com', 'Administracja / Użytkownicy', 'Podgląd', '2026-08-01', '2026-12-31', 'jkowalski', 'Dostęp testowy']);
             
             fclose($file);
         };
@@ -329,7 +333,7 @@ class PAccessController extends Controller
                 if (!$access->user || !$access->modul || !$access->operacja) continue;
                 fputcsv($file, [
                     $access->user->email,
-                    $access->modul->nazwa,
+                    $this->getModuleFullPath($access->modul),
                     $access->operacja->nazwa,
                     $access->valid_from ? $access->valid_from->format('Y-m-d') : '',
                     $access->valid_to ? $access->valid_to->format('Y-m-d') : '',
@@ -431,11 +435,29 @@ class PAccessController extends Controller
                 continue;
             }
 
-            // Find or create module
-            $modul = PModul::firstOrCreate(
-                ['nazwa' => $modName],
-                ['parent_id' => null]
-            );
+            // Find or create module (supports nested categories separated by /)
+            $segments = array_map('trim', explode('/', $modName));
+            $segments = array_filter($segments); // Remove empty segments
+            
+            if (empty($segments)) {
+                $errors[] = "Wiersz {$lineNum}: Nazwa modułu jest niepoprawna.";
+                continue;
+            }
+
+            if (count($segments) > 5) {
+                $errors[] = "Wiersz {$lineNum}: Przekroczono maksymalny poziom zagnieżdżenia modułów (maksymalnie 5).";
+                continue;
+            }
+
+            $parentId = null;
+            $modul = null;
+            foreach ($segments as $segment) {
+                $modul = PModul::firstOrCreate([
+                    'nazwa' => $segment,
+                    'parent_id' => $parentId
+                ]);
+                $parentId = $modul->id;
+            }
 
             // Find or create operation
             $operacja = POperacje::firstOrCreate(
@@ -528,5 +550,16 @@ class PAccessController extends Controller
         }
 
         return back()->with('success', $msg);
+    }
+
+    private function getModuleFullPath($modul)
+    {
+        $path = [$modul->nazwa];
+        $parent = $modul->parent;
+        while ($parent) {
+            array_unshift($path, $parent->nazwa);
+            $parent = $parent->parent;
+        }
+        return implode(' / ', $path);
     }
 }

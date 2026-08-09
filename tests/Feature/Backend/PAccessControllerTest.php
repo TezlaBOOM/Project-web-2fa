@@ -352,4 +352,47 @@ class PAccessControllerTest extends TestCase
         $response->assertStatus(200);
         $this->assertStringContainsString('import_access@test.pl,"Modul Nowy",Edycja', $response->streamedContent());
     }
+
+    public function test_csv_import_export_nested_modules()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create([
+            'email' => 'nested@test.pl',
+        ]);
+
+        // Import CSV with a nested module path
+        $csvData = "email_użytkownika,nazwa_modułu,nazwa_operacji,ważne_od,ważne_do,login,uwagi\n" .
+                   "nested@test.pl,Kategoria Główna / Podkategoria 1 / Podkategoria 2,Podgląd,2026-08-01,2026-12-31,nlogin,nuwagi\n";
+        
+        $file = UploadedFile::fake()->createWithContent('access.csv', $csvData);
+
+        $response = $this->actingAs($admin)->post(route('access.csv.import'), [
+            'csv_file' => $file,
+        ]);
+
+        $response->assertRedirect();
+
+        // Check nested PModul structure created
+        $root = \App\Models\PModul::where('nazwa', 'Kategoria Główna')->whereNull('parent_id')->first();
+        $this->assertNotNull($root);
+
+        $sub1 = \App\Models\PModul::where('nazwa', 'Podkategoria 1')->where('parent_id', $root->id)->first();
+        $this->assertNotNull($sub1);
+
+        $sub2 = \App\Models\PModul::where('nazwa', 'Podkategoria 2')->where('parent_id', $sub1->id)->first();
+        $this->assertNotNull($sub2);
+
+        // Check active access created with sub2 id
+        $this->assertDatabaseHas('P_access', [
+            'user_id' => $user->id,
+            'p_modul_id' => $sub2->id,
+            'login' => 'nlogin',
+            'uwagi' => 'nuwagi',
+        ]);
+
+        // Export and check nested path serialization
+        $response = $this->actingAs($admin)->get(route('access.csv.export'));
+        $response->assertStatus(200);
+        $this->assertStringContainsString('nested@test.pl,"Kategoria Główna / Podkategoria 1 / Podkategoria 2",Podgląd', $response->streamedContent());
+    }
 }
