@@ -100,4 +100,42 @@ class PModulControllerTest extends TestCase
         $response->assertSee('System &gt; Security', false);
         $response->assertDontSee('ERP');
     }
+
+    public function test_admin_modules_view_has_collapsible_attributes_and_toggles()
+    {
+        $admin = $this->createAdmin();
+        
+        $m1 = PModul::create(['nazwa' => 'Parent Category']);
+        $m2 = PModul::create(['nazwa' => 'Child Category', 'parent_id' => $m1->id]);
+
+        $response = $this->actingAs($admin)->get(route('modules.index'));
+        $response->assertStatus(200);
+
+        // Check if data-id and data-ancestors are present in HTML response
+        $response->assertSee('data-id="' . $m1->id . '"', false);
+        $response->assertSee('data-id="' . $m2->id . '"', false);
+        $response->assertSee('data-ancestors="' . $m1->id . '"', false);
+
+        // Check toggle-category and toggle-icon SVG
+        $response->assertSee('toggle-category', false);
+        $response->assertSee('toggle-icon', false);
+    }
+
+    public function test_admin_modules_are_collapsed_by_default()
+    {
+        $admin = $this->createAdmin();
+        
+        $m1 = PModul::create(['nazwa' => 'Parent Category']);
+        $m2 = PModul::create(['nazwa' => 'Child Category', 'parent_id' => $m1->id]);
+
+        $response = $this->actingAs($admin)->get(route('modules.index'));
+        $response->assertStatus(200);
+
+        // Parent should have class="collapsed" because it has children
+        $response->assertSee('class="collapsed"', false);
+
+        // Child should have display: none in its style attribute
+        $response->assertSee('display: none;', false);
+    }
 }
+

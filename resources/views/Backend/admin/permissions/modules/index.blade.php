@@ -84,7 +84,7 @@
                         @endforelse
                     @else
                         @forelse($modules as $module)
-                            @include('Backend.admin.permissions.modules._row', ['module' => $module, 'depth' => 0])
+                            @include('Backend.admin.permissions.modules._row', ['module' => $module, 'depth' => 0, 'ancestors' => []])
                         @empty
                             <tr>
                                 <td colspan="2" style="text-align: center; color: var(--text-muted); padding: 2rem 0;">Brak modułów.</td>
@@ -96,6 +96,17 @@
         </div>
     </main>
 @endsection
+
+@push('styles')
+<style>
+    tr.collapsed .toggle-icon {
+        transform: rotate(-90deg);
+    }
+    .toggle-category:hover {
+        color: var(--primary) !important;
+    }
+</style>
+@endpush
 
 @push('scripts')
 <script>
@@ -109,5 +120,46 @@
             }, 400);
         });
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const table = document.querySelector('table');
+        if (!table) return;
+
+        table.addEventListener('click', function(e) {
+            const toggle = e.target.closest('.toggle-category');
+            if (!toggle) return;
+
+            const row = toggle.closest('tr');
+            if (!row) return;
+
+            // Zmień stan rozwinięcia/zwinięcia tego wiersza
+            row.classList.toggle('collapsed');
+
+            // Pobierz wszystkie wiersze modułów posiadające data-id
+            const rows = Array.from(table.querySelectorAll('tr[data-id]'));
+            
+            // Stwórz zbiór (Set) identyfikatorów aktualnie zwiniętych modułów
+            const collapsedIds = new Set(
+                rows.filter(r => r.classList.contains('collapsed'))
+                    .map(r => r.getAttribute('data-id'))
+            );
+
+            // Zaktualizuj widoczność każdego wiersza na podstawie jego przodków
+            rows.forEach(r => {
+                const ancestorsAttr = r.getAttribute('data-ancestors');
+                if (!ancestorsAttr) return;
+
+                const ancestors = ancestorsAttr.split(',').filter(Boolean);
+                const shouldHide = ancestors.some(ancestorId => collapsedIds.has(ancestorId));
+
+                if (shouldHide) {
+                    r.style.display = 'none';
+                } else {
+                    r.style.display = '';
+                }
+            });
+        });
+    });
 </script>
 @endpush
+
