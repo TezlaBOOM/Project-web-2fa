@@ -37,7 +37,20 @@
                 <table style="width: 100%; border-collapse: collapse; text-align: left;">
                     <thead>
                         <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem;">
-                            <th style="padding: 0.85rem 1rem;">Użytkownik</th>
+                            <th style="padding: 0.85rem 1rem;">
+                                <span style="margin-right: 0.5rem;">Użytkownik</span>
+                                <span style="font-weight: normal; font-size: 0.8rem;">
+                                    (Sortuj: 
+                                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'name', 'sort_dir' => ($sortBy === 'name' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" style="color: {{ $sortBy === 'name' ? 'var(--primary)' : 'inherit' }}; text-decoration: none; display: inline-flex; align-items: center; gap: 0.15rem;" class="sort-header">
+                                        Nazwa @if($sortBy === 'name') <span>{{ $sortDir === 'asc' ? '▲' : '▼' }}</span> @endif
+                                    </a>
+                                    | 
+                                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'email', 'sort_dir' => ($sortBy === 'email' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" style="color: {{ $sortBy === 'email' ? 'var(--primary)' : 'inherit' }}; text-decoration: none; display: inline-flex; align-items: center; gap: 0.15rem;" class="sort-header">
+                                        Email @if($sortBy === 'email') <span>{{ $sortDir === 'asc' ? '▲' : '▼' }}</span> @endif
+                                    </a>
+                                    )
+                                </span>
+                            </th>
                             <th style="padding: 0.85rem 1rem;">Rola</th>
                             <th style="padding: 0.85rem 1rem;">Status</th>
                             <th style="padding: 0.85rem 1rem;">Zarejestrowano</th>
@@ -83,6 +96,14 @@
         </div>
     </main>
 @endsection
+
+@push('styles')
+<style>
+    .sort-header:hover {
+        color: var(--primary) !important;
+    }
+</style>
+@endpush
 
 @push('scripts')
 <script>

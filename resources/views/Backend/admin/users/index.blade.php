@@ -55,9 +55,36 @@
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
                             <tr style="border-bottom: 1px solid var(--border);">
-                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">ID</th>
-                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Nazwa</th>
-                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Email</th>
+                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">
+                                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'id', 'sort_dir' => ($sortBy === 'id' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;" class="sort-header">
+                                        ID
+                                        @if($sortBy === 'id')
+                                            <span style="font-size: 0.75rem;">{{ $sortDir === 'asc' ? '▲' : '▼' }}</span>
+                                        @else
+                                            <span style="font-size: 0.75rem; opacity: 0.3;">⇅</span>
+                                        @endif
+                                    </a>
+                                </th>
+                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">
+                                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'name', 'sort_dir' => ($sortBy === 'name' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;" class="sort-header">
+                                        Nazwa
+                                        @if($sortBy === 'name')
+                                            <span style="font-size: 0.75rem;">{{ $sortDir === 'asc' ? '▲' : '▼' }}</span>
+                                        @else
+                                            <span style="font-size: 0.75rem; opacity: 0.3;">⇅</span>
+                                        @endif
+                                    </a>
+                                </th>
+                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">
+                                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'email', 'sort_dir' => ($sortBy === 'email' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;" class="sort-header">
+                                        Email
+                                        @if($sortBy === 'email')
+                                            <span style="font-size: 0.75rem;">{{ $sortDir === 'asc' ? '▲' : '▼' }}</span>
+                                        @else
+                                            <span style="font-size: 0.75rem; opacity: 0.3;">⇅</span>
+                                        @endif
+                                    </a>
+                                </th>
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Wydział</th>
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Rola</th>
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Zarejestrowano</th>
@@ -118,6 +145,14 @@
         </div>
     </main>
 @endsection
+
+@push('styles')
+<style>
+    .sort-header:hover {
+        color: var(--primary) !important;
+    }
+</style>
+@endpush
 
 @push('scripts')
 <script>

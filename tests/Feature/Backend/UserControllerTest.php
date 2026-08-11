@@ -169,4 +169,61 @@ class UserControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('current@test.pl');
     }
+
+    public function test_user_sorting()
+    {
+        $admin = $this->createAdmin();
+
+        $u1 = User::factory()->create(['name' => 'Adam Nowak', 'email' => 'adam@test.pl']);
+        $u2 = User::factory()->create(['name' => 'Zenon Kowalski', 'email' => 'zenon@test.pl']);
+
+        // 1. Sort by name asc
+        $response = $this->actingAs($admin)->get(route('users.index', ['sort_by' => 'name', 'sort_dir' => 'asc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posAdam = strpos($html, 'Adam Nowak');
+        $posZenon = strpos($html, 'Zenon Kowalski');
+        $this->assertTrue($posAdam < $posZenon, "Adam should appear before Zenon when sorting by name asc");
+
+        // 2. Sort by name desc
+        $response = $this->actingAs($admin)->get(route('users.index', ['sort_by' => 'name', 'sort_dir' => 'desc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posAdam = strpos($html, 'Adam Nowak');
+        $posZenon = strpos($html, 'Zenon Kowalski');
+        $this->assertTrue($posZenon < $posAdam, "Zenon should appear before Adam when sorting by name desc");
+
+        // 3. Sort by email asc
+        $response = $this->actingAs($admin)->get(route('users.index', ['sort_by' => 'email', 'sort_dir' => 'asc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posAdamEmail = strpos($html, 'adam@test.pl');
+        $posZenonEmail = strpos($html, 'zenon@test.pl');
+        $this->assertTrue($posAdamEmail < $posZenonEmail, "adam@test.pl should appear before zenon@test.pl when sorting by email asc");
+
+        // 4. Sort by email desc
+        $response = $this->actingAs($admin)->get(route('users.index', ['sort_by' => 'email', 'sort_dir' => 'desc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posAdamEmail = strpos($html, 'adam@test.pl');
+        $posZenonEmail = strpos($html, 'zenon@test.pl');
+        $this->assertTrue($posZenonEmail < $posAdamEmail, "zenon@test.pl should appear before adam@test.pl when sorting by email desc");
+
+        // 5. Sort by ID asc
+        $response = $this->actingAs($admin)->get(route('users.index', ['sort_by' => 'id', 'sort_dir' => 'asc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posU1 = strpos($html, $u1->name);
+        $posU2 = strpos($html, $u2->name);
+        $this->assertTrue($posU1 < $posU2, "u1 should appear before u2 when sorting by ID asc");
+
+        // 6. Sort by ID desc
+        $response = $this->actingAs($admin)->get(route('users.index', ['sort_by' => 'id', 'sort_dir' => 'desc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posU1 = strpos($html, $u1->name);
+        $posU2 = strpos($html, $u2->name);
+        $this->assertTrue($posU2 < $posU1, "u2 should appear before u1 when sorting by ID desc");
+    }
 }
+

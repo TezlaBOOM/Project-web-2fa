@@ -42,9 +42,19 @@ class UserController extends Controller
             });
         }
 
-        $users = $query->orderBy('name')->get();
+        $sortBy = $request->get('sort_by', 'name');
+        $sortDir = $request->get('sort_dir', 'asc');
+
+        if (!in_array($sortBy, ['id', 'name', 'email'])) {
+            $sortBy = 'name';
+        }
+        if (!in_array($sortDir, ['asc', 'desc'])) {
+            $sortDir = 'asc';
+        }
+
+        $users = $query->orderBy($sortBy, $sortDir)->get();
         
-        return view("Backend.{$role}.users.index", compact('users', 'search'));
+        return view("Backend.{$role}.users.index", compact('users', 'search', 'sortBy', 'sortDir'));
     }
 
     public function create()
