@@ -39,7 +39,9 @@ class User extends Authenticatable
 
     public function departments()
     {
-        return $this->belongsToMany(Departament::class, 'DepartamentUsers', 'ID_Users', 'ID_Departament');
+        return $this->belongsToMany(Departament::class, 'DepartamentUsers', 'ID_Users', 'ID_Departament')
+                    ->withPivot('od', 'do')
+                    ->withTimestamps();
     }
 
     public function activities()

@@ -225,5 +225,120 @@ class UserControllerTest extends TestCase
         $posU2 = strpos($html, $u2->name);
         $this->assertTrue($posU2 < $posU1, "u2 should appear before u1 when sorting by ID desc");
     }
+
+    public function test_admin_user_list_shows_status_instead_of_registered_date()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['is_active' => false, 'name' => 'Inactive User']);
+
+        $response = $this->actingAs($admin)->get(route('users.index'));
+        $response->assertStatus(200);
+
+        // Header checks
+        $response->assertSee('Status');
+        $response->assertDontSee('Zarejestrowano');
+
+        // Status badge checks
+        $response->assertSee('● Aktywny'); // For the logged in admin
+        $response->assertSee('● Nieaktywny'); // For the inactive user
+    }
+
+    public function test_admin_can_assign_departments_with_dates_and_it_logs_changes()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create();
+
+        $d1 = Departament::create(['Nazwa' => 'Marketing']);
+        $d2 = Departament::create(['Nazwa' => 'Techniczny']);
+
+        $response = $this->actingAs($admin)->put(route('users.update', $user->id), [
+            'name' => 'Updated User',
+            'email' => $user->email,
+            'role' => 'user',
+            'departments' => [$d1->ID_Departament, $d2->ID_Departament],
+            'dept_dates' => [
+                $d1->ID_Departament => ['od' => '2026-08-10', 'do' => ''],
+                $d2->ID_Departament => ['od' => '2026-08-01', 'do' => '2026-08-09'],
+            ],
+        ]);
+        $response->assertRedirect(route('users.index'));
+
+        // Check if DB has pivot records with dates
+        $this->assertDatabaseHas('DepartamentUsers', [
+            'ID_Users' => $user->id,
+            'ID_Departament' => $d1->ID_Departament,
+            'od' => '2026-08-10',
+            'do' => null,
+        ]);
+
+        $this->assertDatabaseHas('DepartamentUsers', [
+            'ID_Users' => $user->id,
+            'ID_Departament' => $d2->ID_Departament,
+            'od' => '2026-08-01',
+            'do' => '2026-08-09',
+        ]);
+
+        // Check if logs are generated with the new format
+        $this->assertDatabaseHas('user_change_logs', [
+            'user_id' => $user->id,
+            'field_name' => 'departments',
+            'old_value' => 'Brak',
+            'new_value' => 'Marketing (od: 2026-08-10, do: aktualnie), Techniczny (od: 2026-08-01, do: 2026-08-09)',
+        ]);
+    }
+
+    public function test_user_csv_export_and_import_with_department_dates()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['name' => 'Kamil Śliwka', 'email' => 'kamil@test.pl']);
+        $d1 = Departament::create(['Nazwa' => 'Logistyka']);
+        $d2 = Departament::create(['Nazwa' => 'Sprzedaż']);
+
+        // Assign depts with dates to user
+        $user->departments()->sync([
+            $d1->ID_Departament => ['od' => '2026-03-01', 'do' => ''],
+            $d2->ID_Departament => ['od' => '2026-01-01', 'do' => '2026-02-28'],
+        ]);
+
+        // 1. Verify Export format
+        $response = $this->actingAs($admin)->get(route('users.csv.export'));
+        $response->assertStatus(200);
+        $content = $response->streamedContent();
+
+        $this->assertStringContainsString('Logistyka (2026-03-01 - )', $content);
+        $this->assertStringContainsString('Sprzedaż (2026-01-01 - 2026-02-28)', $content);
+
+        // 2. Verify Import format parsing
+        $csvData = "id,imię_i_nazwisko,email,rola,status,wydziały\n" .
+                   "{$user->id},Kamil Śliwka,kamil@test.pl,user,aktywny,\"Magazyn (2026-05-10 - 2026-05-20), Finanse (2026-06-01 - )\"\n";
+
+        $file = UploadedFile::fake()->createWithContent('users.csv', $csvData);
+
+        $response = $this->actingAs($admin)->post(route('users.csv.import'), [
+            'csv_file' => $file,
+        ]);
+        $response->assertRedirect();
+
+        // Check if new departments were assigned with pivot dates
+        $dMagazyn = Departament::where('Nazwa', 'Magazyn')->first();
+        $dFinanse = Departament::where('Nazwa', 'Finanse')->first();
+
+        $this->assertNotNull($dMagazyn);
+        $this->assertNotNull($dFinanse);
+
+        $this->assertDatabaseHas('DepartamentUsers', [
+            'ID_Users' => $user->id,
+            'ID_Departament' => $dMagazyn->ID_Departament,
+            'od' => '2026-05-10',
+            'do' => '2026-05-20',
+        ]);
+
+        $this->assertDatabaseHas('DepartamentUsers', [
+            'ID_Users' => $user->id,
+            'ID_Departament' => $dFinanse->ID_Departament,
+            'od' => '2026-06-01',
+            'do' => null,
+        ]);
+    }
 }
 

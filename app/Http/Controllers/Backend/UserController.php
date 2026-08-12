@@ -150,6 +150,9 @@ class UserController extends Controller
             'password'    => 'nullable|string|min:8|confirmed',
             'departments' => 'nullable|array',
             'departments.*' => 'exists:Departament,ID_Departament',
+            'dept_dates'  => 'nullable|array',
+            'dept_dates.*.od' => 'nullable|date',
+            'dept_dates.*.do' => 'nullable|date',
             'two_factor_enabled' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
         ], [
@@ -163,9 +166,20 @@ class UserController extends Controller
             'role.in'            => 'Wybierz prawidłową rolę.',
         ]);
 
+        $formatDeptsWithDates = function($departments) {
+            if ($departments->isEmpty()) {
+                return 'Brak';
+            }
+            return $departments->map(function($dept) {
+                $odStr = $dept->pivot->od ?: 'brak';
+                $doStr = $dept->pivot->do ?: 'aktualnie';
+                return "{$dept->Nazwa} (od: {$odStr}, do: {$doStr})";
+            })->sort()->implode(', ');
+        };
+
         // Capture changes before saving
         $changesToLog = [];
-        $oldDepts = $user->departments->pluck('Nazwa')->sort()->implode(', ');
+        $oldDepts = $formatDeptsWithDates($user->departments);
 
         $user->name  = $validated['name'];
         $user->email = $validated['email'];
@@ -218,19 +232,28 @@ class UserController extends Controller
         $user->save();
 
         if (isset($validated['departments'])) {
-            $user->departments()->sync($validated['departments']);
+            $syncData = [];
+            foreach ($validated['departments'] as $deptId) {
+                $od = $request->input("dept_dates.{$deptId}.od");
+                $do = $request->input("dept_dates.{$deptId}.do");
+                $syncData[$deptId] = [
+                    'od' => !empty($od) ? $od : null,
+                    'do' => !empty($do) ? $do : null,
+                ];
+            }
+            $user->departments()->sync($syncData);
         } else {
             $user->departments()->detach();
         }
 
         // Compare departments after sync
         $user->load('departments');
-        $newDepts = $user->departments->pluck('Nazwa')->sort()->implode(', ');
+        $newDepts = $formatDeptsWithDates($user->departments);
         if ($oldDepts !== $newDepts) {
             $changesToLog[] = [
                 'field_name' => 'departments',
-                'old_value' => $oldDepts ?: 'Brak',
-                'new_value' => $newDepts ?: 'Brak',
+                'old_value' => $oldDepts,
+                'new_value' => $newDepts,
             ];
         }
 
@@ -338,7 +361,7 @@ class UserController extends Controller
             fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
             
             fputcsv($file, ['id', 'imię_i_nazwisko', 'email', 'rola', 'status', 'wydziały']);
-            fputcsv($file, ['', 'Jan Kowalski', 'jan.kowalski@example.com', 'user', 'aktywny', 'Wydział IT, Wydział Finansów']);
+            fputcsv($file, ['', 'Jan Kowalski', 'jan.kowalski@example.com', 'user', 'aktywny', 'Wydział IT (2026-01-01 - ), Wydział Finansów (2026-02-01 - 2026-06-30)']);
             
             fclose($file);
         };
@@ -372,7 +395,17 @@ class UserController extends Controller
 
             foreach ($users as $user) {
                 $status = $user->is_active ? 'aktywny' : 'nieaktywny';
-                $depts = $user->departments->pluck('Nazwa')->implode(', ');
+                $deptStrings = [];
+                foreach ($user->departments as $dept) {
+                    $od = $dept->pivot->od ? $dept->pivot->od : '';
+                    $do = $dept->pivot->do ? $dept->pivot->do : '';
+                    if ($od || $do) {
+                        $deptStrings[] = "{$dept->Nazwa} ({$od} - {$do})";
+                    } else {
+                        $deptStrings[] = $dept->Nazwa;
+                    }
+                }
+                $depts = implode(', ', $deptStrings);
                 fputcsv($file, [
                     $user->id,
                     $user->name,
@@ -395,6 +428,17 @@ class UserController extends Controller
         if ($role !== 'admin') {
             abort(403, 'Brak dostępu.');
         }
+
+        $formatDeptsWithDates = function($departments) {
+            if ($departments->isEmpty()) {
+                return 'Brak';
+            }
+            return $departments->map(function($dept) {
+                $odStr = $dept->pivot->od ?: 'brak';
+                $doStr = $dept->pivot->do ?: 'aktualnie';
+                return "{$dept->Nazwa} (od: {$odStr}, do: {$doStr})";
+            })->sort()->implode(', ');
+        };
 
         $request->validate([
             'csv_file' => 'required|file|max:2048',
@@ -494,7 +538,7 @@ class UserController extends Controller
                 }
 
                 $changesToLog = [];
-                $oldDepts = $user->departments->pluck('Nazwa')->sort()->implode(', ');
+                $oldDepts = $formatDeptsWithDates($user->departments);
 
                 $fieldsToCompare = [
                     'name' => $name,
@@ -535,27 +579,42 @@ class UserController extends Controller
                 $user->save();
 
                 // Assign departments
-                $deptIds = [];
+                $syncData = [];
                 if ($deptsStr) {
                     $deptNames = array_map('trim', explode(',', $deptsStr));
                     foreach ($deptNames as $dName) {
                         if (!$dName) continue;
+
+                        if (preg_match('/^(.*?)\s*\(\s*([0-9-]{10})?\s*-\s*([0-9-]{10})?\s*\)$/', $dName, $matches)) {
+                            $parsedName = trim($matches[1]);
+                            $od = !empty($matches[2]) ? $matches[2] : null;
+                            $do = !empty($matches[3]) ? $matches[3] : null;
+                        } else {
+                            $parsedName = trim($dName);
+                            $od = null;
+                            $do = null;
+                        }
+
                         $dept = Departament::firstOrCreate(
-                            ['Nazwa' => $dName],
+                            ['Nazwa' => $parsedName],
                             ['Description' => 'Wydział utworzony automatycznie podczas importu CSV.']
                         );
-                        $deptIds[] = $dept->ID_Departament;
+                        
+                        $syncData[$dept->ID_Departament] = [
+                            'od' => $od,
+                            'do' => $do,
+                        ];
                     }
                 }
-                $user->departments()->sync($deptIds);
+                $user->departments()->sync($syncData);
 
                 $user->load('departments');
-                $newDepts = $user->departments->pluck('Nazwa')->sort()->implode(', ');
+                $newDepts = $formatDeptsWithDates($user->departments);
                 if ($oldDepts !== $newDepts) {
                     $changesToLog[] = [
                         'field_name' => 'departments',
-                        'old_value' => $oldDepts ?: 'Brak',
-                        'new_value' => $newDepts ?: 'Brak',
+                        'old_value' => $oldDepts,
+                        'new_value' => $newDepts,
                     ];
                 }
 
@@ -592,17 +651,32 @@ class UserController extends Controller
                 // Assign departments
                 if ($deptsStr) {
                     $deptNames = array_map('trim', explode(',', $deptsStr));
-                    $deptIds = [];
+                    $syncData = [];
                     foreach ($deptNames as $dName) {
                         if (!$dName) continue;
+
+                        if (preg_match('/^(.*?)\s*\(\s*([0-9-]{10})?\s*-\s*([0-9-]{10})?\s*\)$/', $dName, $matches)) {
+                            $parsedName = trim($matches[1]);
+                            $od = !empty($matches[2]) ? $matches[2] : null;
+                            $do = !empty($matches[3]) ? $matches[3] : null;
+                        } else {
+                            $parsedName = trim($dName);
+                            $od = null;
+                            $do = null;
+                        }
+
                         $dept = Departament::firstOrCreate(
-                            ['Nazwa' => $dName],
+                            ['Nazwa' => $parsedName],
                             ['Description' => 'Wydział utworzony automatycznie podczas importu CSV.']
                         );
-                        $deptIds[] = $dept->ID_Departament;
+                        
+                        $syncData[$dept->ID_Departament] = [
+                            'od' => $od,
+                            'do' => $do,
+                        ];
                     }
-                    if (!empty($deptIds)) {
-                        $newUser->departments()->sync($deptIds);
+                    if (!empty($syncData)) {
+                        $newUser->departments()->sync($syncData);
                     }
                 }
 

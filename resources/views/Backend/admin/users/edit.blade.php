@@ -25,7 +25,7 @@
             </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 420px; gap: 2rem; align-items: start; max-width: 1200px;">
+        <div class="edit-grid">
             <div style="min-width: 0;">
 
                 <!-- Validation errors -->
@@ -102,15 +102,38 @@
 
                         <!-- Wydziały -->
                         <div class="form-group">
-                            <label class="form-label">Wydziały</label>
-                            <div class="checkbox-list @error('departments') form-control-error @enderror" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; max-height: 200px; overflow-y: auto;">
+                            <label class="form-label">Wydziały i okresy członkostwa</label>
+                            @php
+                                $userDepts = $user->departments->keyBy('ID_Departament');
+                            @endphp
+                            <div class="departments-list @error('departments') form-control-error @enderror" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem; display: flex; flex-direction: column;">
                                 @foreach($departments as $dept)
-                                    <label style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; cursor: pointer; color: var(--text-main);">
-                                        <input type="checkbox" name="departments[]" value="{{ $dept->ID_Departament }}" 
-                                            {{ in_array($dept->ID_Departament, old('departments', $user->departments->pluck('ID_Departament')->toArray())) ? 'checked' : '' }}
-                                            style="width: 1.1rem; height: 1.1rem; accent-color: var(--primary); cursor: pointer;">
-                                        <span>{{ $dept->Nazwa }}</span>
-                                    </label>
+                                    @php
+                                        $userDept = $userDepts->get($dept->ID_Departament);
+                                        $isChecked = !empty($userDept) || in_array($dept->ID_Departament, old('departments', []));
+                                        
+                                        $odVal = old("dept_dates.{$dept->ID_Departament}.od", $userDept ? ($userDept->pivot->od ? \Carbon\Carbon::parse($userDept->pivot->od)->format('Y-m-d') : '') : '');
+                                        $doVal = old("dept_dates.{$dept->ID_Departament}.do", $userDept ? ($userDept->pivot->do ? \Carbon\Carbon::parse($userDept->pivot->do)->format('Y-m-d') : '') : '');
+                                    @endphp
+                                    <div class="dept-row" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                                        <label class="dept-checkbox-label">
+                                            <input type="checkbox" name="departments[]" value="{{ $dept->ID_Departament }}" class="dept-checkbox"
+                                                {{ $isChecked ? 'checked' : '' }}
+                                                style="width: 1.15rem; height: 1.15rem; accent-color: var(--primary); cursor: pointer;">
+                                            <span style="font-weight: 500;">{{ $dept->Nazwa }}</span>
+                                        </label>
+                                        
+                                        <div class="dept-date-fields" style="transition: opacity 0.2s;">
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">Od:</span>
+                                                <input type="date" name="dept_dates[{{ $dept->ID_Departament }}][od]" value="{{ $odVal }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface);">
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">Do:</span>
+                                                <input type="date" name="dept_dates[{{ $dept->ID_Departament }}][do]" value="{{ $doVal }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface);">
+                                            </div>
+                                        </div>
+                                    </div>
                                 @endforeach
                             </div>
                             @error('departments')
@@ -325,6 +348,49 @@
     #submit-btn:active {
         transform: scale(0.98);
     }
+
+    .edit-grid {
+        display: grid;
+        grid-template-columns: 1fr 420px;
+        gap: 2rem;
+        align-items: start;
+        max-width: 1200px;
+    }
+    @media (max-width: 1024px) {
+        .edit-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .dept-row {
+        display: flex;
+        flex-flow: row wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        transition: background 0.2s;
+    }
+
+    .dept-checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        color: var(--text-main);
+        margin-bottom: 0;
+        user-select: none;
+        flex: 1 0 200px;
+    }
+
+    .dept-date-fields {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+        flex: 1 0 310px;
+    }
 </style>
 @endpush
 
@@ -338,6 +404,26 @@
     document.getElementById('toggle-password-confirm').addEventListener('click', function () {
         const input = document.getElementById('password_confirmation');
         input.type = input.type === 'password' ? 'text' : 'password';
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.dept-checkbox').forEach(checkbox => {
+            const row = checkbox.closest('.dept-row');
+            if (!row) return;
+            const dateFields = row.querySelector('.dept-date-fields');
+            if (!dateFields) return;
+            const inputs = dateFields.querySelectorAll('input');
+
+            const updateState = () => {
+                inputs.forEach(input => {
+                    input.disabled = !checkbox.checked;
+                });
+                dateFields.style.opacity = checkbox.checked ? '1' : '0.35';
+            };
+
+            checkbox.addEventListener('change', updateState);
+            updateState(); // initialize
+        });
     });
 </script>
 @endpush

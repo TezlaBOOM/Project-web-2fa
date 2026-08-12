@@ -87,7 +87,7 @@
                                 </th>
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Wydział</th>
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Rola</th>
-                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Zarejestrowano</th>
+                                <th style="padding: 1rem; font-weight: 600; color: var(--text-muted);">Status</th>
                                 <th style="padding: 1rem; font-weight: 600; color: var(--text-muted); text-align: right;">Akcje</th>
                             </tr>
                         </thead>
@@ -117,7 +117,13 @@
                                             {{ ucfirst($user->role ?? 'Brak') }}
                                         </span>
                                     </td>
-                                    <td style="padding: 1rem; color: var(--text-muted); font-size: 0.875rem;">{{ $user->created_at->format('Y-m-d H:i') }}</td>
+                                    <td style="padding: 1rem;">
+                                        @if($user->is_active)
+                                            <span style="color: var(--success); font-size: 0.875rem; font-weight: 500;">● Aktywny</span>
+                                        @else
+                                            <span style="color: var(--danger); font-size: 0.875rem; font-weight: 500;">● Nieaktywny</span>
+                                        @endif
+                                    </td>
                                     <td style="padding: 1rem; text-align: right; white-space: nowrap;">
                                         <a href="{{ route('users.edit', $user->id) }}" class="btn-table-action">
                                             ✎ Edytuj
