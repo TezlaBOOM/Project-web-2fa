@@ -47,7 +47,7 @@ class UserControllerTest extends TestCase
         $response = $this->actingAs($admin)->get(route('users.csv.pattern'));
         $response->assertStatus(200);
         $response->assertHeader('Content-Disposition', 'attachment; filename="wzor_uzytkownicy.csv"');
-        $this->assertStringContainsString('imię_i_nazwisko,email,rola,status,wydziały', $response->streamedContent());
+        $this->assertStringContainsString('imię_i_nazwisko,email,rola,status,wydział,data_od,data_do', $response->streamedContent());
     }
 
     public function test_csv_export()
@@ -61,16 +61,17 @@ class UserControllerTest extends TestCase
         $response->assertStatus(200);
         
         $content = $response->streamedContent();
-        $this->assertStringContainsString('"Janusz Kowal",janusz@test.pl,user,aktywny,"Dzial Marketingu"', $content);
+        $this->assertStringContainsString('"Janusz Kowal",janusz@test.pl,user,aktywny,"Dzial Marketingu",,', $content);
     }
 
     public function test_csv_import()
     {
         $admin = $this->createAdmin();
 
-        $csvData = "imię_i_nazwisko,email,rola,status,wydziały\n" .
-                   "Zofia Importowana,zofia@import.pl,mod,aktywny,\"Dział Testowy, Nowy Dział\"\n" .
-                   "Stefan Nieaktywny,stefan@import.pl,user,nieaktywny,\"\"\n";
+        $csvData = "imię_i_nazwisko,email,rola,status,wydział,data_od,data_do\n" .
+                   "Zofia Importowana,zofia@import.pl,mod,aktywny,Dział Testowy,,\n" .
+                   "Zofia Importowana,zofia@import.pl,mod,aktywny,Nowy Dział,,\n" .
+                   "Stefan Nieaktywny,stefan@import.pl,user,nieaktywny,,,\n";
 
         $file = UploadedFile::fake()->createWithContent('users.csv', $csvData);
 
@@ -113,8 +114,8 @@ class UserControllerTest extends TestCase
             'is_active' => true,
         ]);
 
-        $csvData = "id,imię_i_nazwisko,email,rola,status,wydziały\n" .
-                   "{$user->id},Nowy Nazwisko,stary@test.pl,mod,nieaktywny,\"Wydział Nowy\"\n";
+        $csvData = "id,imię_i_nazwisko,email,rola,status,wydział,data_od,data_do\n" .
+                   "{$user->id},Nowy Nazwisko,stary@test.pl,mod,nieaktywny,Wydział Nowy,,\n";
 
         $file = UploadedFile::fake()->createWithContent('users.csv', $csvData);
 
@@ -255,15 +256,16 @@ class UserControllerTest extends TestCase
             'name' => 'Updated User',
             'email' => $user->email,
             'role' => 'user',
-            'departments' => [$d1->ID_Departament, $d2->ID_Departament],
-            'dept_dates' => [
-                $d1->ID_Departament => ['od' => '2026-08-10', 'do' => ''],
-                $d2->ID_Departament => ['od' => '2026-08-01', 'do' => '2026-08-09'],
+            'assignments' => [
+                ['department_id' => $d1->ID_Departament, 'od' => '2026-08-10', 'do' => ''],
+                ['department_id' => $d2->ID_Departament, 'od' => '2026-08-01', 'do' => '2026-08-09'],
+                ['department_id' => $d1->ID_Departament, 'od' => '2026-01-01', 'do' => '2026-05-01'], // Back to same department!
             ],
         ]);
+
         $response->assertRedirect(route('users.index'));
 
-        // Check if DB has pivot records with dates
+        // Check if DB has pivot records with dates (including duplicate departments)
         $this->assertDatabaseHas('DepartamentUsers', [
             'ID_Users' => $user->id,
             'ID_Departament' => $d1->ID_Departament,
@@ -278,12 +280,19 @@ class UserControllerTest extends TestCase
             'do' => '2026-08-09',
         ]);
 
-        // Check if logs are generated with the new format
+        $this->assertDatabaseHas('DepartamentUsers', [
+            'ID_Users' => $user->id,
+            'ID_Departament' => $d1->ID_Departament,
+            'od' => '2026-01-01',
+            'do' => '2026-05-01',
+        ]);
+
+        // Check if logs are generated with the new format (including duplicate departments)
         $this->assertDatabaseHas('user_change_logs', [
             'user_id' => $user->id,
             'field_name' => 'departments',
             'old_value' => 'Brak',
-            'new_value' => 'Marketing (od: 2026-08-10, do: aktualnie), Techniczny (od: 2026-08-01, do: 2026-08-09)',
+            'new_value' => 'Marketing (od: 2026-01-01, do: 2026-05-01), Marketing (od: 2026-08-10, do: aktualnie), Techniczny (od: 2026-08-01, do: 2026-08-09)',
         ]);
     }
 
@@ -295,22 +304,22 @@ class UserControllerTest extends TestCase
         $d2 = Departament::create(['Nazwa' => 'Sprzedaż']);
 
         // Assign depts with dates to user
-        $user->departments()->sync([
-            $d1->ID_Departament => ['od' => '2026-03-01', 'do' => ''],
-            $d2->ID_Departament => ['od' => '2026-01-01', 'do' => '2026-02-28'],
-        ]);
+        $user->departments()->attach($d1->ID_Departament, ['od' => '2026-03-01', 'do' => '']);
+        $user->departments()->attach($d2->ID_Departament, ['od' => '2026-01-01', 'do' => '2026-02-28']);
 
         // 1. Verify Export format
         $response = $this->actingAs($admin)->get(route('users.csv.export'));
         $response->assertStatus(200);
         $content = $response->streamedContent();
 
-        $this->assertStringContainsString('Logistyka (2026-03-01 - )', $content);
-        $this->assertStringContainsString('Sprzedaż (2026-01-01 - 2026-02-28)', $content);
+        $this->assertStringContainsString('Logistyka,2026-03-01,', $content);
+        $this->assertStringContainsString('Sprzedaż,2026-01-01,2026-02-28', $content);
 
-        // 2. Verify Import format parsing
-        $csvData = "id,imię_i_nazwisko,email,rola,status,wydziały\n" .
-                   "{$user->id},Kamil Śliwka,kamil@test.pl,user,aktywny,\"Magazyn (2026-05-10 - 2026-05-20), Finanse (2026-06-01 - )\"\n";
+        // 2. Verify Import format parsing (with multiple periods for the same department!)
+        $csvData = "id,imię_i_nazwisko,email,rola,status,wydział,data_od,data_do\n" .
+                   "{$user->id},Kamil Śliwka,kamil@test.pl,user,aktywny,Magazyn,2026-05-10,2026-05-20\n" .
+                   "{$user->id},Kamil Śliwka,kamil@test.pl,user,aktywny,Finanse,2026-06-01,\n" .
+                   "{$user->id},Kamil Śliwka,kamil@test.pl,user,aktywny,Magazyn,2026-07-01,\n";
 
         $file = UploadedFile::fake()->createWithContent('users.csv', $csvData);
 
@@ -331,6 +340,13 @@ class UserControllerTest extends TestCase
             'ID_Departament' => $dMagazyn->ID_Departament,
             'od' => '2026-05-10',
             'do' => '2026-05-20',
+        ]);
+
+        $this->assertDatabaseHas('DepartamentUsers', [
+            'ID_Users' => $user->id,
+            'ID_Departament' => $dMagazyn->ID_Departament,
+            'od' => '2026-07-01',
+            'do' => null,
         ]);
 
         $this->assertDatabaseHas('DepartamentUsers', [

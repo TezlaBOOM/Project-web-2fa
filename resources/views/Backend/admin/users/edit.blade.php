@@ -102,43 +102,91 @@
 
                         <!-- Wydziały -->
                         <div class="form-group">
-                            <label class="form-label">Wydziały i okresy członkostwa</label>
-                            @php
-                                $userDepts = $user->departments->keyBy('ID_Departament');
-                            @endphp
-                            <div class="departments-list @error('departments') form-control-error @enderror" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem; display: flex; flex-direction: column;">
-                                @foreach($departments as $dept)
-                                    @php
-                                        $userDept = $userDepts->get($dept->ID_Departament);
-                                        $isChecked = !empty($userDept) || in_array($dept->ID_Departament, old('departments', []));
+                            <label class="form-label">Okresy członkostwa w wydziałach</label>
+                            
+                            <div id="assignments-container" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;">
+                                @php
+                                    $oldAssignments = old('assignments');
+                                    $assignmentsToRender = [];
+                                    if (is_array($oldAssignments)) {
+                                        $assignmentsToRender = $oldAssignments;
+                                    } else {
+                                        foreach ($user->departments as $index => $dept) {
+                                            $assignmentsToRender[] = [
+                                                'department_id' => $dept->ID_Departament,
+                                                'od' => $dept->pivot->od ? \Carbon\Carbon::parse($dept->pivot->od)->format('Y-m-d') : '',
+                                                'do' => $dept->pivot->do ? \Carbon\Carbon::parse($dept->pivot->do)->format('Y-m-d') : '',
+                                            ];
+                                        }
+                                    }
+                                @endphp
+
+                                @forelse($assignmentsToRender as $idx => $assign)
+                                    <div class="dept-row assignment-row" style="transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                                        <div style="flex: 1 0 200px;">
+                                            <select name="assignments[{{ $idx }}][department_id]" class="form-control select-department" required style="width: 100%; min-width: 180px;">
+                                                <option value="">-- Wybierz wydział --</option>
+                                                @foreach($departments as $dept)
+                                                    <option value="{{ $dept->ID_Departament }}" {{ $assign['department_id'] == $dept->ID_Departament ? 'selected' : '' }}>
+                                                        {{ $dept->Nazwa }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                         
-                                        $odVal = old("dept_dates.{$dept->ID_Departament}.od", $userDept ? ($userDept->pivot->od ? \Carbon\Carbon::parse($userDept->pivot->od)->format('Y-m-d') : '') : '');
-                                        $doVal = old("dept_dates.{$dept->ID_Departament}.do", $userDept ? ($userDept->pivot->do ? \Carbon\Carbon::parse($userDept->pivot->do)->format('Y-m-d') : '') : '');
-                                    @endphp
-                                    <div class="dept-row" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
-                                        <label class="dept-checkbox-label">
-                                            <input type="checkbox" name="departments[]" value="{{ $dept->ID_Departament }}" class="dept-checkbox"
-                                                {{ $isChecked ? 'checked' : '' }}
-                                                style="width: 1.15rem; height: 1.15rem; accent-color: var(--primary); cursor: pointer;">
-                                            <span style="font-weight: 500;">{{ $dept->Nazwa }}</span>
-                                        </label>
-                                        
-                                        <div class="dept-date-fields" style="transition: opacity 0.2s;">
+                                        <div class="dept-date-fields">
                                             <div style="display: flex; align-items: center; gap: 0.4rem;">
                                                 <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">Od:</span>
-                                                <input type="date" name="dept_dates[{{ $dept->ID_Departament }}][od]" value="{{ $odVal }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface);">
+                                                <input type="date" name="assignments[{{ $idx }}][od]" value="{{ $assign['od'] }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface);">
                                             </div>
                                             <div style="display: flex; align-items: center; gap: 0.4rem;">
                                                 <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">Do:</span>
-                                                <input type="date" name="dept_dates[{{ $dept->ID_Departament }}][do]" value="{{ $doVal }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface);">
+                                                <input type="date" name="assignments[{{ $idx }}][do]" value="{{ $assign['do'] }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface);">
                                             </div>
                                         </div>
+                                        
+                                        <button type="button" class="btn-remove-assignment" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1.25rem; padding: 0.25rem 0.5rem; transition: transform 0.1s;" title="Usuń okres przypisania">🗑️</button>
                                     </div>
-                                @endforeach
+                                @empty
+                                    <p class="no-assignments-msg" style="padding: 1rem; text-align: center; color: var(--text-muted); margin: 0; font-size: 0.875rem;">Brak przypisanych wydziałów. Kliknij przycisk poniżej, aby dodać.</p>
+                                @endforelse
                             </div>
-                            @error('departments')
+
+                            <button type="button" id="btn-add-assignment" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 600; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-main); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+                                <span>➕</span> Dodaj okres przypisania
+                            </button>
+
+                            @error('assignments')
                                 <p class="form-error-msg">{{ $message }}</p>
                             @enderror
+                        </div>
+
+                        <!-- Template for new assignments -->
+                        <template id="assignment-row-template">
+                            <div class="dept-row assignment-row" style="transition: all 0.2s; opacity: 0; transform: translateY(-10px);">
+                                <div style="flex: 1 0 200px;">
+                                    <select name="assignments[__INDEX__][department_id]" class="form-control select-department" required style="width: 100%; min-width: 180px;">
+                                        <option value="">-- Wybierz wydział --</option>
+                                        @foreach($departments as $dept)
+                                            <option value="{{ $dept->ID_Departament }}">{{ $dept->Nazwa }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                
+                                <div class="dept-date-fields">
+                                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                        <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">Od:</span>
+                                        <input type="date" name="assignments[__INDEX__][od]" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface);">
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                        <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">Do:</span>
+                                        <input type="date" name="assignments[__INDEX__][do]" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface);">
+                                    </div>
+                                </div>
+                                
+                                <button type="button" class="btn-remove-assignment" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1.25rem; padding: 0.25rem 0.5rem; transition: transform 0.1s;" title="Usuń okres przypisania">🗑️</button>
+                            </div>
+                        </template>
                         </div>
 
                         <!-- 2FA (Uwierzytelnianie dwuetapowe) -->
@@ -373,23 +421,28 @@
         transition: background 0.2s;
     }
 
-    .dept-checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        cursor: pointer;
-        color: var(--text-main);
-        margin-bottom: 0;
-        user-select: none;
-        flex: 1 0 200px;
-    }
-
     .dept-date-fields {
         display: flex;
         gap: 1rem;
         align-items: center;
         flex-wrap: wrap;
         flex: 1 0 310px;
+    }
+
+    .btn-remove-assignment:hover {
+        transform: scale(1.18);
+        color: #ef4444 !important;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 </style>
 @endpush
@@ -407,22 +460,63 @@
     });
 
     document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.dept-checkbox').forEach(checkbox => {
-            const row = checkbox.closest('.dept-row');
-            if (!row) return;
-            const dateFields = row.querySelector('.dept-date-fields');
-            if (!dateFields) return;
-            const inputs = dateFields.querySelectorAll('input');
+        const container = document.getElementById('assignments-container');
+        const addButton = document.getElementById('btn-add-assignment');
+        const template = document.getElementById('assignment-row-template');
+        let index = container.querySelectorAll('.assignment-row').length;
 
-            const updateState = () => {
-                inputs.forEach(input => {
-                    input.disabled = !checkbox.checked;
-                });
-                dateFields.style.opacity = checkbox.checked ? '1' : '0.35';
-            };
+        const updateNoAssignmentsMsg = () => {
+            const rows = container.querySelectorAll('.assignment-row');
+            let msg = container.querySelector('.no-assignments-msg');
+            if (rows.length === 0) {
+                if (!msg) {
+                    msg = document.createElement('p');
+                    msg.className = 'no-assignments-msg';
+                    msg.style.cssText = 'padding: 1rem; text-align: center; color: var(--text-muted); margin: 0; font-size: 0.875rem;';
+                    msg.textContent = 'Brak przypisanych wydziałów. Kliknij przycisk poniżej, aby dodać.';
+                    container.appendChild(msg);
+                }
+            } else {
+                if (msg) {
+                    msg.remove();
+                }
+            }
+        };
 
-            checkbox.addEventListener('change', updateState);
-            updateState(); // initialize
+        addButton.addEventListener('click', function() {
+            const msg = container.querySelector('.no-assignments-msg');
+            if (msg) msg.remove();
+
+            const clone = template.content.cloneNode(true);
+            const row = clone.querySelector('.assignment-row');
+
+            row.querySelectorAll('select, input').forEach(el => {
+                el.name = el.name.replace('__INDEX__', index);
+            });
+
+            container.appendChild(row);
+
+            requestAnimationFrame(() => {
+                row.style.opacity = '1';
+                row.style.transform = 'translateY(0)';
+            });
+
+            index++;
+        });
+
+        container.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-remove-assignment');
+            if (btn) {
+                const row = btn.closest('.assignment-row');
+                if (row) {
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateY(-10px)';
+                    row.addEventListener('transitionend', function() {
+                        row.remove();
+                        updateNoAssignmentsMsg();
+                    }, { once: true });
+                }
+            }
         });
     });
 </script>
