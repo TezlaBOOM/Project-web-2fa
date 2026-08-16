@@ -10,16 +10,27 @@ use App\Models\UserActivity;
 
 class POperacjeController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizeAdmin();
-        $search = request('search');
-        $query = POperacje::orderBy('nazwa');
+        $search = $request->get('search');
+        
+        $sortBy = $request->get('sort_by', 'nazwa');
+        $sortDir = $request->get('sort_dir', 'asc');
+        
+        if (!in_array($sortBy, ['id', 'nazwa'])) {
+            $sortBy = 'nazwa';
+        }
+        if (!in_array($sortDir, ['asc', 'desc'])) {
+            $sortDir = 'asc';
+        }
+
+        $query = POperacje::orderBy($sortBy, $sortDir);
         if ($search) {
             $query->where('nazwa', 'like', "%{$search}%");
         }
         $operations = $query->get();
-        return view('Backend.admin.permissions.operations.index', compact('operations', 'search'));
+        return view('Backend.admin.permissions.operations.index', compact('operations', 'search', 'sortBy', 'sortDir'));
     }
 
     public function create()

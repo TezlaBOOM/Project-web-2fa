@@ -25,6 +25,16 @@ class PAccessController extends Controller
         $userId   = $request->get('user_id');
         $deptId   = $request->get('dept_id');
 
+        $sortBy = $request->get('sort_by', 'name');
+        $sortDir = $request->get('sort_dir', 'asc');
+        
+        if (!in_array($sortBy, ['name', 'email'])) {
+            $sortBy = 'name';
+        }
+        if (!in_array($sortDir, ['asc', 'desc'])) {
+            $sortDir = 'asc';
+        }
+
         $baseQuery = User::withCount('pAccesses')
             ->with(['pAccesses.modul.parent', 'pAccesses.operacja']);
 
@@ -66,10 +76,10 @@ class PAccessController extends Controller
             }
         }
 
-        $users = $baseQuery->orderBy('name')->paginate(20)->withQueryString();
+        $users = $baseQuery->orderBy($sortBy, $sortDir)->paginate(20)->withQueryString();
 
         return view('Backend.admin.permissions.access.index', compact(
-            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId'
+            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'sortBy', 'sortDir'
         ));
     }
 

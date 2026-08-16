@@ -14,16 +14,26 @@ class DocumentController extends Controller
     /**
      * Display a listing of the documents.
      */
-    public function index()
+    public function index(Request $request)
     {
         $role = auth()->user()->role ?? 'none';
         if (!in_array($role, ['admin', 'mod', 'user'])) {
             abort(403, 'Brak dostępu.');
         }
 
-        $documents = Document::with('module')->orderBy('created_at', 'desc')->get();
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortDir = $request->get('sort_dir', 'desc');
         
-        return view('Backend.documents.index', compact('documents', 'role'));
+        if (!in_array($sortBy, ['nazwa', 'original_filename', 'created_at'])) {
+            $sortBy = 'created_at';
+        }
+        if (!in_array($sortDir, ['asc', 'desc'])) {
+            $sortDir = 'desc';
+        }
+
+        $documents = Document::with('module')->orderBy($sortBy, $sortDir)->get();
+        
+        return view('Backend.documents.index', compact('documents', 'role', 'sortBy', 'sortDir'));
     }
 
     /**

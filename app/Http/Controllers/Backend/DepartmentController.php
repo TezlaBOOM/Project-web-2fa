@@ -18,11 +18,22 @@ class DepartmentController extends Controller
         return $role;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->checkAccess();
-        $departments = Departament::orderBy('ID_Departament', 'asc')->get();
-        return view('Backend.admin.departments.index', compact('departments'));
+        
+        $sortBy = $request->get('sort_by', 'Nazwa');
+        $sortDir = $request->get('sort_dir', 'asc');
+        
+        if (!in_array($sortBy, ['ID_Departament', 'Nazwa', 'created_at'])) {
+            $sortBy = 'Nazwa';
+        }
+        if (!in_array($sortDir, ['asc', 'desc'])) {
+            $sortDir = 'asc';
+        }
+
+        $departments = Departament::orderBy($sortBy, $sortDir)->get();
+        return view('Backend.admin.departments.index', compact('departments', 'sortBy', 'sortDir'));
     }
 
     public function create()

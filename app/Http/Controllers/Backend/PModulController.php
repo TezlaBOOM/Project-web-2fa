@@ -10,16 +10,40 @@ use App\Models\UserActivity;
 
 class PModulController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizeAdmin();
-        $search = request('search');
-        if ($search) {
-            $modules = PModul::where('nazwa', 'like', "%{$search}%")->with('parent')->orderBy('nazwa')->get();
-        } else {
-            $modules = PModul::whereNull('parent_id')->with('children')->orderBy('nazwa')->get();
+        $search = $request->get('search');
+        
+        $sortBy = $request->get('sort_by', 'nazwa');
+        $sortDir = $request->get('sort_dir', 'asc');
+        
+        if (!in_array($sortBy, ['nazwa'])) {
+            $sortBy = 'nazwa';
         }
-        return view('Backend.admin.permissions.modules.index', compact('modules', 'search'));
+        if (!in_array($sortDir, ['asc', 'desc'])) {
+            $sortDir = 'asc';
+        }
+
+        if ($search) {
+            $modules = PModul::where('nazwa', 'like', "%{$search}%")->with('parent')->orderBy($sortBy, $sortDir)->get();
+        } else {
+            $modules = PModul::whereNull('parent_id')->orderBy($sortBy, $sortDir)->get();
+            
+            // Recursively sort children
+            $sortRecursively = function($module) use (&$sortRecursively, $sortBy, $sortDir) {
+                $children = $module->children()->orderBy($sortBy, $sortDir)->get();
+                $module->setRelation('children', $children);
+                foreach ($children as $child) {
+                    $sortRecursively($child);
+                }
+            };
+
+            foreach ($modules as $module) {
+                $sortRecursively($module);
+            }
+        }
+        return view('Backend.admin.permissions.modules.index', compact('modules', 'search', 'sortBy', 'sortDir'));
     }
 
     public function create()
