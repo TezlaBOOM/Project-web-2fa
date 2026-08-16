@@ -52,10 +52,37 @@
                     <table style="width: 100%; border-collapse: collapse;">
                         <thead>
                             <tr style="border-bottom: 1px solid var(--border); text-align: left; color: var(--text-muted); font-size: 0.85rem;">
-                                <th style="padding: 1rem 0.75rem;">Nazwa Dokumentu</th>
-                                <th style="padding: 1rem 0.75rem;">Przypisany Moduł</th>
-                                <th style="padding: 1rem 0.75rem;">Nazwa Pliku</th>
-                                <th style="padding: 1rem 0.75rem;">Data Dodania</th>
+                                <th style="padding: 1rem 0.75rem;">
+                                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'nazwa', 'sort_dir' => ($sortBy === 'nazwa' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;" class="sort-header">
+                                        Nazwa Dokumentu
+                                        @if($sortBy === 'nazwa')
+                                            <span style="font-size: 0.75rem;">{{ $sortDir === 'asc' ? '▲' : '▼' }}</span>
+                                        @else
+                                            <span style="font-size: 0.75rem; opacity: 0.3;">⇅</span>
+                                        @endif
+                                    </a>
+                                </th>
+                                <th style="padding: 1rem 0.75rem; color: var(--text-muted);">Przypisany Moduł</th>
+                                <th style="padding: 1rem 0.75rem;">
+                                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'original_filename', 'sort_dir' => ($sortBy === 'original_filename' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;" class="sort-header">
+                                        Nazwa Pliku
+                                        @if($sortBy === 'original_filename')
+                                            <span style="font-size: 0.75rem;">{{ $sortDir === 'asc' ? '▲' : '▼' }}</span>
+                                        @else
+                                            <span style="font-size: 0.75rem; opacity: 0.3;">⇅</span>
+                                        @endif
+                                    </a>
+                                </th>
+                                <th style="padding: 1rem 0.75rem;">
+                                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'created_at', 'sort_dir' => ($sortBy === 'created_at' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.25rem;" class="sort-header">
+                                        Data Dodania
+                                        @if($sortBy === 'created_at')
+                                            <span style="font-size: 0.75rem;">{{ $sortDir === 'asc' ? '▲' : '▼' }}</span>
+                                        @else
+                                            <span style="font-size: 0.75rem; opacity: 0.3;">⇅</span>
+                                        @endif
+                                    </a>
+                                </th>
                                 <th style="padding: 1rem 0.75rem; text-align: right;">Akcje</th>
                             </tr>
                         </thead>
@@ -114,3 +141,11 @@
         </div>
     </main>
 @endsection
+
+@push('styles')
+<style>
+    .sort-header:hover {
+        color: var(--primary) !important;
+    }
+</style>
+@endpush

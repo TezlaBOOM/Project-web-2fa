@@ -69,8 +69,16 @@
             {{-- ═══ LEWA KOLUMNA – lista użytkowników ═══ --}}
             <div>
                 <div class="card" style="overflow: hidden; padding: 0;">
-                    <div style="padding: 0.75rem 1.1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                    <div style="padding: 0.75rem 1.1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                         <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase;">Użytkownicy</span>
+                        <div style="display: flex; gap: 0.4rem; align-items: center;">
+                            <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'name', 'sort_dir' => ($sortBy === 'name' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" style="color: inherit; text-decoration: none; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 0.15rem; font-weight: 500;" class="sort-header" title="Sortuj po nazwie">
+                                Nazwa @if($sortBy === 'name') <span>{{ $sortDir === 'asc' ? '▲' : '▼' }}</span> @else <span style="opacity: 0.4;">⇅</span> @endif
+                            </a>
+                            <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'email', 'sort_dir' => ($sortBy === 'email' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" style="color: inherit; text-decoration: none; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 0.15rem; font-weight: 500;" class="sort-header" title="Sortuj po emailu">
+                                Email @if($sortBy === 'email') <span>{{ $sortDir === 'asc' ? '▲' : '▼' }}</span> @else <span style="opacity: 0.4;">⇅</span> @endif
+                            </a>
+                        </div>
                         @if($deptId)
                             @php $deptName = $departments->firstWhere('ID_Departament', $deptId)?->Nazwa; @endphp
                             @if($deptName)
@@ -315,6 +323,9 @@
     dialog::backdrop {
         background-color: rgba(15, 23, 42, 0.7);
         backdrop-filter: blur(4px);
+    }
+    .sort-header:hover {
+        color: var(--primary) !important;
     }
 </style>
 <script>
