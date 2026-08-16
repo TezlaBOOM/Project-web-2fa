@@ -179,4 +179,41 @@ class DocumentControllerTest extends TestCase
         // Assert the module still exists
         $this->assertDatabaseHas('P_modul', ['id' => $module->id]);
     }
+
+    public function test_document_sorting()
+    {
+        $admin = $this->createAdmin();
+        $module = PModul::create(['nazwa' => 'Moduł Testowy']);
+
+        $docA = Document::create([
+            'nazwa' => 'Dokument A',
+            'file_path' => 'documents/a.pdf',
+            'original_filename' => 'a.pdf',
+            'p_modul_id' => $module->id,
+            'created_at' => now()->subDays(2),
+        ]);
+        $docB = Document::create([
+            'nazwa' => 'Dokument B',
+            'file_path' => 'documents/b.pdf',
+            'original_filename' => 'b.pdf',
+            'p_modul_id' => $module->id,
+            'created_at' => now()->subDay(),
+        ]);
+
+        // 1. Sort by name asc
+        $response = $this->actingAs($admin)->get(route('documents.index', ['sort_by' => 'nazwa', 'sort_dir' => 'asc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posA = strpos($html, 'Dokument A');
+        $posB = strpos($html, 'Dokument B');
+        $this->assertTrue($posA < $posB, "Dokument A should appear before Dokument B in asc sorting");
+
+        // 2. Sort by name desc
+        $response = $this->actingAs($admin)->get(route('documents.index', ['sort_by' => 'nazwa', 'sort_dir' => 'desc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posA = strpos($html, 'Dokument A');
+        $posB = strpos($html, 'Dokument B');
+        $this->assertTrue($posB < $posA, "Dokument B should appear before Dokument A in desc sorting");
+    }
 }

@@ -137,5 +137,28 @@ class PModulControllerTest extends TestCase
         // Child should have display: none in its style attribute
         $response->assertSee('display: none;', false);
     }
+
+    public function test_modules_sorting()
+    {
+        $admin = $this->createAdmin();
+        $m1 = PModul::create(['nazwa' => 'Moduł B']);
+        $m2 = PModul::create(['nazwa' => 'Moduł A']);
+
+        // 1. Sort by name asc
+        $response = $this->actingAs($admin)->get(route('modules.index', ['sort_by' => 'nazwa', 'sort_dir' => 'asc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posA = strpos($html, 'Moduł A');
+        $posB = strpos($html, 'Moduł B');
+        $this->assertTrue($posA < $posB, "Moduł A should appear before Moduł B in asc sorting");
+
+        // 2. Sort by name desc
+        $response = $this->actingAs($admin)->get(route('modules.index', ['sort_by' => 'nazwa', 'sort_dir' => 'desc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posA = strpos($html, 'Moduł A');
+        $posB = strpos($html, 'Moduł B');
+        $this->assertTrue($posB < $posA, "Moduł B should appear before Moduł A in desc sorting");
+    }
 }
 

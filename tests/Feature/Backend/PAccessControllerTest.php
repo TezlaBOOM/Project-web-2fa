@@ -395,4 +395,27 @@ class PAccessControllerTest extends TestCase
         $response->assertStatus(200);
         $this->assertStringContainsString('nested@test.pl,"Kategoria Główna / Podkategoria 1 / Podkategoria 2",Podgląd', $response->streamedContent());
     }
+
+    public function test_access_user_sorting()
+    {
+        $admin = $this->createAdmin();
+        $u1 = User::factory()->create(['name' => 'Adam Nowak', 'email' => 'adam@test.pl']);
+        $u2 = User::factory()->create(['name' => 'Zenon Kowalski', 'email' => 'zenon@test.pl']);
+
+        // 1. Sort by name asc
+        $response = $this->actingAs($admin)->get(route('access.index', ['sort_by' => 'name', 'sort_dir' => 'asc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posAdam = strpos($html, 'Adam Nowak');
+        $posZenon = strpos($html, 'Zenon Kowalski');
+        $this->assertTrue($posAdam < $posZenon, "Adam should appear before Zenon when sorting by name asc");
+
+        // 2. Sort by name desc
+        $response = $this->actingAs($admin)->get(route('access.index', ['sort_by' => 'name', 'sort_dir' => 'desc']));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $posAdam = strpos($html, 'Adam Nowak');
+        $posZenon = strpos($html, 'Zenon Kowalski');
+        $this->assertTrue($posZenon < $posAdam, "Zenon should appear before Adam when sorting by name desc");
+    }
 }
