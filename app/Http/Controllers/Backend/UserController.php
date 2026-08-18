@@ -432,6 +432,9 @@ class UserController extends Controller
             abort(403, 'Brak dostępu.');
         }
 
+        // Increase execution time limit for large imports
+        @set_time_limit(0);
+
         $formatDeptsWithDates = function($departments) {
             if ($departments->isEmpty()) {
                 return 'Brak';

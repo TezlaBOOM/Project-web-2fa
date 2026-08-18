@@ -362,6 +362,9 @@ class PAccessController extends Controller
     {
         $this->authorizeAdmin();
 
+        // Increase execution time limit for large imports
+        @set_time_limit(0);
+
         $request->validate([
             'csv_file' => 'required|file|max:2048',
         ]);
