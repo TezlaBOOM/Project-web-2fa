@@ -418,4 +418,67 @@ class PAccessControllerTest extends TestCase
         $posZenon = strpos($html, 'Zenon Kowalski');
         $this->assertTrue($posZenon < $posAdam, "Zenon should appear before Adam when sorting by name desc");
     }
+
+    /**
+     * Użytkownicy z wygasłą datą ważności wydziału nie powinni być widoczni
+     * przy filtrowaniu po wydziale.
+     */
+    public function test_user_with_expired_department_date_is_hidden_in_dept_filter()
+    {
+        $admin = $this->createAdmin();
+        $dept = Departament::create(['Nazwa' => 'Wydział A']);
+
+        $activeUser  = User::factory()->create(['name' => 'Aktywny Użytkownik', 'role' => 'user', 'is_active' => true]);
+        $expiredUser = User::factory()->create(['name' => 'Wygasły Użytkownik', 'role' => 'user', 'is_active' => true]);
+        $noDateUser  = User::factory()->create(['name' => 'Bezterminowy Użytkownik', 'role' => 'user', 'is_active' => true]);
+
+        // Aktywny — data do w przyszłości
+        $activeUser->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(10)->toDateString(),
+            'do' => now()->addDays(30)->toDateString(),
+        ]);
+
+        // Wygasły — data do w przeszłości
+        $expiredUser->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(60)->toDateString(),
+            'do' => now()->subDays(1)->toDateString(),
+        ]);
+
+        // Bezterminowy — brak daty końcowej
+        $noDateUser->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(5)->toDateString(),
+            'do' => null,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('access.index', ['dept_id' => $dept->ID_Departament]));
+        $response->assertStatus(200);
+
+        // Aktywny i bezterminowy powinni być widoczni
+        $response->assertSee('Aktywny Użytkownik');
+        $response->assertSee('Bezterminowy Użytkownik');
+
+        // Wygasły NIE powinien być widoczny
+        $response->assertDontSee('Wygasły Użytkownik');
+    }
+
+    /**
+     * Użytkownicy z datą ważności wydziału dokładnie dzisiaj powinni być widoczni.
+     */
+    public function test_user_with_department_date_expiring_today_is_visible()
+    {
+        $admin = $this->createAdmin();
+        $dept = Departament::create(['Nazwa' => 'Wydział B']);
+
+        $todayUser = User::factory()->create(['name' => 'Dzisiejszy Użytkownik', 'role' => 'user', 'is_active' => true]);
+
+        // Data do = dzisiaj — powinien być widoczny (>= today)
+        $todayUser->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(10)->toDateString(),
+            'do' => now()->toDateString(),
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('access.index', ['dept_id' => $dept->ID_Departament]));
+        $response->assertStatus(200);
+        $response->assertSee('Dzisiejszy Użytkownik');
+    }
 }

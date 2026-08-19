@@ -61,7 +61,13 @@ class PAccessController extends Controller
 
         if ($deptId) {
             $baseQuery->whereHas('departments', function($q) use ($deptId) {
-                $q->where('Departament.ID_Departament', $deptId);
+                $q->where('Departament.ID_Departament', $deptId)
+                  ->where(function($q2) {
+                      // Uwzględnij tylko aktywnych członków wydziału:
+                      // brak daty końcowej LUB data końcowa >= dzisiaj
+                      $q2->whereNull('DepartamentUsers.do')
+                         ->orWhere('DepartamentUsers.do', '>=', now()->toDateString());
+                  });
             });
         }
 
