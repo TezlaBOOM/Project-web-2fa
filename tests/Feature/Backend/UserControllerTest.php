@@ -356,5 +356,32 @@ class UserControllerTest extends TestCase
             'do' => null,
         ]);
     }
+
+    public function test_user_index_renders_expired_department_in_red()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['name' => 'Test Red Date', 'email' => 'red@test.pl']);
+        $deptActive = Departament::create(['Nazwa' => 'Wydział Aktywny']);
+        $deptExpired = Departament::create(['Nazwa' => 'Wydział Wygasły']);
+
+        // Attach active department (do in future)
+        $user->departments()->attach($deptActive->ID_Departament, [
+            'od' => '2026-01-01',
+            'do' => '2099-12-31',
+        ]);
+
+        // Attach expired department (do in past)
+        $user->departments()->attach($deptExpired->ID_Departament, [
+            'od' => '2020-01-01',
+            'do' => '2020-12-31',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('users.index'));
+        $response->assertStatus(200);
+
+        // Check if red color styling (#ef4444) is present for expired department
+        $response->assertSee('#ef4444');
+        $response->assertSee('(do: 2020-12-31)');
+    }
 }
 

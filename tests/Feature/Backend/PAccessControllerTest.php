@@ -481,4 +481,27 @@ class PAccessControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Dzisiejszy Użytkownik');
     }
+
+    /**
+     * Test filtrowania po statusie konta użytkownika (aktywny / nieaktywny).
+     */
+    public function test_access_index_user_status_filtering()
+    {
+        $admin = $this->createAdmin();
+
+        $activeUser   = User::factory()->create(['name' => 'Aktywny Jan', 'is_active' => true]);
+        $inactiveUser = User::factory()->create(['name' => 'Nieaktywny Piotr', 'is_active' => false]);
+
+        // 1. Filter active
+        $responseActive = $this->actingAs($admin)->get(route('access.index', ['user_status' => 'active']));
+        $responseActive->assertStatus(200);
+        $responseActive->assertSee('Aktywny Jan');
+        $responseActive->assertDontSee('Nieaktywny Piotr');
+
+        // 2. Filter inactive
+        $responseInactive = $this->actingAs($admin)->get(route('access.index', ['user_status' => 'inactive']));
+        $responseInactive->assertStatus(200);
+        $responseInactive->assertSee('Nieaktywny Piotr');
+        $responseInactive->assertDontSee('Aktywny Jan');
+    }
 }

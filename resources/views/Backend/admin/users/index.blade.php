@@ -101,10 +101,19 @@
                                     <td style="padding: 1rem; color: var(--text-muted);">{{ $user->email }}</td>
                                     <td style="padding: 1rem;">
                                         @if($user->departments->count() > 0)
-                                            <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+                                            <div style="display: flex; flex-wrap: wrap; gap: 0.3rem;">
                                                 @foreach($user->departments as $dept)
-                                                    <span title="{{ $dept->Nazwa }}" style="background: rgba(16, 185, 129, 0.1); color: var(--success); padding: 0.2rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                                        {{ $dept->Nazwa }}
+                                                    @php
+                                                        $isExpired = $dept->pivot->do && $dept->pivot->do < date('Y-m-d');
+                                                    @endphp
+                                                    <span title="{{ $dept->Nazwa }}@if($dept->pivot->od) (od: {{ $dept->pivot->od }})@endif @if($dept->pivot->do) (do: {{ $dept->pivot->do }})@endif @if($isExpired) - NIEAKTYWNY @endif"
+                                                          style="background: {{ $isExpired ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.1)' }}; color: {{ $isExpired ? '#ef4444' : 'var(--success)' }}; border: 1px solid {{ $isExpired ? 'rgba(239, 68, 68, 0.3)' : 'transparent' }}; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                        <span>{{ $dept->Nazwa }}</span>
+                                                        @if($dept->pivot->do)
+                                                            <span style="color: {{ $isExpired ? '#ef4444' : 'inherit' }}; font-weight: {{ $isExpired ? '700' : '500' }}; font-size: 0.65rem;">
+                                                                (do: {{ $dept->pivot->do }})
+                                                            </span>
+                                                        @endif
                                                     </span>
                                                 @endforeach
                                             </div>

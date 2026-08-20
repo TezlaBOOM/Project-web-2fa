@@ -36,7 +36,7 @@ class PAccessController extends Controller
         }
 
         $baseQuery = User::withCount('pAccesses')
-            ->with(['pAccesses.modul.parent', 'pAccesses.operacja']);
+            ->with(['departments', 'pAccesses.modul.parent', 'pAccesses.operacja']);
 
         if ($role === 'mod') {
             $departmentIds = auth()->user()->departments->pluck('ID_Departament');
@@ -82,10 +82,17 @@ class PAccessController extends Controller
             }
         }
 
+        $userStatus = $request->get('user_status', $request->get('status', ''));
+        if ($userStatus === 'active' || $userStatus === '1') {
+            $baseQuery->where('is_active', true);
+        } elseif ($userStatus === 'inactive' || $userStatus === '0') {
+            $baseQuery->where('is_active', false);
+        }
+
         $users = $baseQuery->orderBy($sortBy, $sortDir)->paginate(20)->withQueryString();
 
         return view('Backend.admin.permissions.access.index', compact(
-            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'sortBy', 'sortDir'
+            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'sortBy', 'sortDir', 'userStatus'
         ));
     }
 

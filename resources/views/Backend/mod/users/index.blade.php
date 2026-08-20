@@ -63,6 +63,24 @@
                                 <td style="padding: 0.85rem 1rem;">
                                     <div style="font-weight: 500; color: var(--text-color);">{{ $user->name }}</div>
                                     <div style="font-size: 0.75rem; color: var(--text-muted);">{{ $user->email }}</div>
+                                    @if($user->departments && $user->departments->isNotEmpty())
+                                        <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem;">
+                                            @foreach($user->departments as $dept)
+                                                @php
+                                                    $isExpired = $dept->pivot->do && $dept->pivot->do < date('Y-m-d');
+                                                @endphp
+                                                <span title="{{ $dept->Nazwa }}@if($dept->pivot->od) (od: {{ $dept->pivot->od }})@endif @if($dept->pivot->do) (do: {{ $dept->pivot->do }})@endif @if($isExpired) - NIEAKTYWNY @endif"
+                                                      style="background: {{ $isExpired ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.12)' }}; color: {{ $isExpired ? '#ef4444' : 'var(--success)' }}; border: 1px solid {{ $isExpired ? 'rgba(239, 68, 68, 0.3)' : 'transparent' }}; padding: 0.15rem 0.45rem; border-radius: 999px; font-size: 0.68rem; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.2rem;">
+                                                    <span>{{ $dept->Nazwa }}</span>
+                                                    @if($dept->pivot->do)
+                                                        <span style="color: {{ $isExpired ? '#ef4444' : 'inherit' }}; font-weight: {{ $isExpired ? '700' : '500' }}; font-size: 0.65rem;">
+                                                            (do: {{ $dept->pivot->do }})
+                                                        </span>
+                                                    @endif
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    @endif
                                 </td>
                                 <td style="padding: 0.85rem 1rem;">
                                     <span style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">

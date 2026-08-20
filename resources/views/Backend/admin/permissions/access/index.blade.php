@@ -54,8 +54,17 @@
                     </select>
                 </div>
 
+                {{-- Filtr statusu konta --}}
+                <div style="min-width: 175px;">
+                    <select name="user_status" id="user-status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
+                        <option value="">Wszyscy użytkownicy</option>
+                        <option value="active" {{ ($userStatus === 'active' || $userStatus === '1') ? 'selected' : '' }}>Tylko aktywni</option>
+                        <option value="inactive" {{ ($userStatus === 'inactive' || $userStatus === '0') ? 'selected' : '' }}>Tylko nieaktywni</option>
+                    </select>
+                </div>
+
                 {{-- Wyczyść --}}
-                @if($search || $deptId)
+                @if($search || $deptId || $userStatus)
                     <a href="{{ route('access.index', $userId ? ['user_id' => $userId] : []) }}"
                        style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.5rem 0.85rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
                         ✕ Wyczyść filtry
@@ -89,15 +98,38 @@
 
                     @forelse($users as $user)
                         @php $isSelected = $selectedUser && $selectedUser->id === $user->id; @endphp
-                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'dept_id' => $deptId])) }}"
+                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'dept_id' => $deptId, 'user_status' => $userStatus])) }}"
                            style="display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.04); text-decoration: none; background: {{ $isSelected ? 'rgba(99,102,241,0.1)' : 'transparent' }}; transition: background 0.12s;"
                            class="user-row {{ $isSelected ? 'selected' : '' }}">
                             <div style="width: 34px; height: 34px; border-radius: 50%; background: {{ $isSelected ? 'var(--primary)' : 'rgba(99,102,241,0.18)' }}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; color: {{ $isSelected ? 'white' : 'var(--primary)' }}; flex-shrink: 0;">
                                 {{ strtoupper(substr($user->name, 0, 1)) }}
                             </div>
                             <div style="min-width: 0; flex: 1;">
-                                <div style="font-weight: 500; font-size: 0.875rem; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $user->name }}</div>
+                                <div style="font-weight: 500; font-size: 0.875rem; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 0.3rem;">
+                                    <span>{{ $user->name }}</span>
+                                    @if(!$user->is_active)
+                                        <span style="color: #ef4444; font-size: 0.65rem; font-weight: 600; background: rgba(239, 68, 68, 0.12); padding: 0.05rem 0.35rem; border-radius: 4px;">Nieaktywny</span>
+                                    @endif
+                                </div>
                                 <div style="font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $user->email }}</div>
+                                @if($user->departments && $user->departments->isNotEmpty())
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.2rem; margin-top: 0.2rem;">
+                                        @foreach($user->departments as $dept)
+                                            @php
+                                                $isExpired = $dept->pivot->do && $dept->pivot->do < date('Y-m-d');
+                                            @endphp
+                                            <span title="{{ $dept->Nazwa }}@if($dept->pivot->od) (od: {{ $dept->pivot->od }})@endif @if($dept->pivot->do) (do: {{ $dept->pivot->do }})@endif @if($isExpired) - NIEAKTYWNY @endif"
+                                                  style="background: {{ $isExpired ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.12)' }}; color: {{ $isExpired ? '#ef4444' : 'var(--success)' }}; font-size: 0.65rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 999px; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.2rem;">
+                                                <span>{{ $dept->Nazwa }}</span>
+                                                @if($dept->pivot->do)
+                                                    <span style="color: {{ $isExpired ? '#ef4444' : 'inherit' }}; font-weight: {{ $isExpired ? '700' : '500' }}; font-size: 0.62rem;">
+                                                        (do: {{ $dept->pivot->do }})
+                                                    </span>
+                                                @endif
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                @endif
                             </div>
                             <div style="flex-shrink: 0;">
                                 @if($user->p_accesses_count > 0)
@@ -153,10 +185,26 @@
                                     <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.1rem;">
                                         {{ $selectedUser->email }}
                                         &bull; <span style="color: var(--primary);">{{ ucfirst($selectedUser->role) }}</span>
-                                        @if($selectedUser->departments->isNotEmpty())
-                                            &bull; {{ $selectedUser->departments->pluck('Nazwa')->join(', ') }}
-                                        @endif
                                     </div>
+                                    @if($selectedUser->departments->isNotEmpty())
+                                        <div style="display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; align-items: center;">
+                                            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Wydziały:</span>
+                                            @foreach($selectedUser->departments as $dept)
+                                                @php
+                                                    $isExpired = $dept->pivot->do && $dept->pivot->do < date('Y-m-d');
+                                                @endphp
+                                                <span title="{{ $dept->Nazwa }}@if($dept->pivot->od) (od: {{ $dept->pivot->od }})@endif @if($dept->pivot->do) (do: {{ $dept->pivot->do }})@endif @if($isExpired) - NIEAKTYWNY @endif"
+                                                      style="background: {{ $isExpired ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.12)' }}; color: {{ $isExpired ? '#ef4444' : 'var(--success)' }}; border: 1px solid {{ $isExpired ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.2)' }}; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                    <span>{{ $dept->Nazwa }}</span>
+                                                    @if($dept->pivot->do)
+                                                        <span style="color: {{ $isExpired ? '#ef4444' : 'inherit' }}; font-weight: {{ $isExpired ? '700' : '500' }}; font-size: 0.68rem;">
+                                                            (do: {{ $dept->pivot->do }})
+                                                        </span>
+                                                    @endif
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                             @if($role === 'admin')
