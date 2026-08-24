@@ -383,5 +383,30 @@ class UserControllerTest extends TestCase
         $response->assertSee('#ef4444');
         $response->assertSee('(do: 2020-12-31)');
     }
+
+    public function test_mod_and_admin_user_status_filtering()
+    {
+        $dept = Departament::create(['Nazwa' => 'Wydział Testowy']);
+        $mod = User::factory()->create(['role' => 'mod', 'is_active' => true]);
+        $mod->departments()->attach($dept->ID_Departament);
+
+        $activeUser = User::factory()->create(['name' => 'Aktywny ModUser', 'role' => 'user', 'is_active' => true]);
+        $activeUser->departments()->attach($dept->ID_Departament);
+
+        $inactiveUser = User::factory()->create(['name' => 'Nieaktywny ModUser', 'role' => 'user', 'is_active' => false]);
+        $inactiveUser->departments()->attach($dept->ID_Departament);
+
+        // 1. Filter active for mod
+        $responseActive = $this->actingAs($mod)->get(route('users.index', ['status' => 'active']));
+        $responseActive->assertStatus(200);
+        $responseActive->assertSee('Aktywny ModUser');
+        $responseActive->assertDontSee('Nieaktywny ModUser');
+
+        // 2. Filter inactive for mod
+        $responseInactive = $this->actingAs($mod)->get(route('users.index', ['status' => 'inactive']));
+        $responseInactive->assertStatus(200);
+        $responseInactive->assertSee('Nieaktywny ModUser');
+        $responseInactive->assertDontSee('Aktywny ModUser');
+    }
 }
 

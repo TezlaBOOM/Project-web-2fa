@@ -20,17 +20,32 @@
                 Lista użytkowników
             </div>
             <div style="padding: 1rem 1rem 0 1rem;">
-                <!-- Wyszukiwarka -->
-                <form method="GET" action="{{ route('users.index') }}" id="search-form" style="display: flex; gap: 0.5rem; align-items: center;">
-                    <div style="position: relative; flex: 1; max-width: 400px;">
+                <!-- Wyszukiwarka i filtry -->
+                <form method="GET" action="{{ route('users.index') }}" id="search-form" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                    <div style="position: relative; flex: 1; max-width: 400px; min-width: 200px;">
                         <input type="text" name="search" id="search-input" value="{{ $search ?? '' }}" 
                                placeholder="Szukaj po nazwie, emailu lub historii..." 
                                class="form-control" style="width: 100%; padding-right: 2rem;">
                         @if(!empty($search))
-                            <a href="{{ route('users.index') }}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); text-decoration: none; font-size: 1.1rem;" title="Wyczyść wyszukiwanie">✕</a>
+                            <a href="{{ route('users.index', array_filter(['status' => $status ?? ''])) }}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); text-decoration: none; font-size: 1.1rem;" title="Wyczyść wyszukiwanie">✕</a>
                         @endif
                     </div>
+
+                    {{-- Filtr statusu --}}
+                    <div style="min-width: 170px;">
+                        <select name="status" id="status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
+                            <option value="">Wszystkie statusy</option>
+                            <option value="active" {{ ($status ?? '') === 'active' || ($status ?? '') === '1' ? 'selected' : '' }}>Tylko aktywni</option>
+                            <option value="inactive" {{ ($status ?? '') === 'inactive' || ($status ?? '') === '0' ? 'selected' : '' }}>Tylko nieaktywni</option>
+                        </select>
+                    </div>
+
                     <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem; font-size: 0.85rem;">Szukaj</button>
+                    @if(!empty($search) || !empty($status))
+                        <a href="{{ route('users.index') }}" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.55rem 0.85rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
+                            ✕ Wyczyść
+                        </a>
+                    @endif
                 </form>
             </div>
             <div style="overflow-x: auto;">

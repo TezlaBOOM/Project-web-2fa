@@ -21,6 +21,7 @@ class UserController extends Controller
         }
 
         $search = $request->get('search', '');
+        $status = $request->get('status', '');
 
         $query = User::with('departments');
 
@@ -42,6 +43,12 @@ class UserController extends Controller
             });
         }
 
+        if ($status === 'active' || $status === '1') {
+            $query->where('is_active', true);
+        } elseif ($status === 'inactive' || $status === '0') {
+            $query->where('is_active', false);
+        }
+
         $sortBy = $request->get('sort_by', 'name');
         $sortDir = $request->get('sort_dir', 'asc');
 
@@ -54,7 +61,7 @@ class UserController extends Controller
 
         $users = $query->orderBy($sortBy, $sortDir)->get();
         
-        return view("Backend.{$role}.users.index", compact('users', 'search', 'sortBy', 'sortDir'));
+        return view("Backend.{$role}.users.index", compact('users', 'search', 'sortBy', 'sortDir', 'status'));
     }
 
     public function create()
