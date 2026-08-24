@@ -276,6 +276,25 @@ class UserController extends Controller
             ->with('success', 'Dane użytkownika zostały zaktualizowane.');
     }
 
+    public function profile()
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        $user->load('departments');
+
+        $accesses = PAccess::with(['modul.parent', 'operacja'])
+            ->where('user_id', $user->id)
+            ->get();
+
+        return view('Backend.user.profile', [
+            'user' => $user,
+            'accesses' => $accesses,
+        ]);
+    }
+
     public function showPermissions(User $user)
     {
         $role = auth()->user()->role ?? 'none';

@@ -76,6 +76,7 @@ Route::middleware('auth')->group(function () {
         return view("Backend.{$role}.dashboard", compact('usersCount', 'activities', 'accesses', 'search'));
     })->name('dashboard');
 
+    Route::get('/profile', [UserController::class, 'profile'])->name('profile');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
     Route::post('/settings/2fa', [SettingsController::class, 'toggle2fa'])->name('settings.2fa.toggle');

@@ -5,6 +5,9 @@ namespace Tests\Feature\Backend;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Departament;
+use App\Models\PModul;
+use App\Models\POperacje;
+use App\Models\PAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 
@@ -407,6 +410,26 @@ class UserControllerTest extends TestCase
         $responseInactive->assertStatus(200);
         $responseInactive->assertSee('Nieaktywny ModUser');
         $responseInactive->assertDontSee('Aktywny ModUser');
+    }
+
+    public function test_user_can_view_own_profile_with_permissions()
+    {
+        $user = User::factory()->create(['name' => 'Profile User', 'role' => 'user', 'is_active' => true]);
+        $modul = PModul::create(['nazwa' => 'Moduł Profilowy']);
+        $op = POperacje::create(['nazwa' => 'Podgląd']);
+
+        PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $op->id,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('profile'));
+        $response->assertStatus(200);
+        $response->assertSee('Mój Profil');
+        $response->assertSee('Profile User');
+        $response->assertSee('Moduł Profilowy');
+        $response->assertSee('Podgląd');
     }
 }
 
