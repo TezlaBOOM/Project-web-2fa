@@ -279,7 +279,7 @@
                                                         <div>do: {{ $access->valid_to ? $access->valid_to->format('Y-m-d') : '∞' }}</div>
                                                     </div>
                                                     <div class="submodule-action-area">
-                                                        <a href="#" class="action-link" onclick="openMoreInfo({{ $access->user_id }}, {{ $access->p_modul_id }}, {{ $access->p_operacje_id }}, '{{ ($childName === '__root__' ? $rootName : $childName) . ' — ' . ($access->operacja->nazwa ?? '') }}'); return false;">więcej info</a>
+                                                        <a href="#" class="action-link" onclick="openMoreInfo({{ $access->user_id }}, {{ $access->p_modul_id }}, {{ $access->p_operacje_id }}, '{{ ($childName === '__root__' ? $rootName : $childName) . ' — ' . ($access->operacja->nazwa ?? '') }}', {{ $access->id }}); return false;">więcej info</a>
                                                         @if($role === 'admin')
                                                             <a href="{{ route('access.edit', $access->id) }}" title="Edytuj uprawnienie" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.15rem; transition: color 0.12s; display: inline-flex;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">✏️</a>
                                                             
@@ -407,7 +407,7 @@
     }
 
     // Więcej info modal handler
-    function openMoreInfo(userId, modulId, operacjeId, title) {
+    function openMoreInfo(userId, modulId, operacjeId, title, accessId = null) {
         document.getElementById('dialog-title').textContent = title;
         
         const dialog = document.getElementById('history-dialog');
@@ -423,7 +423,12 @@
         
         dialog.showModal();
 
-        fetch(`/permissions/access/history?user_id=${userId}&p_modul_id=${modulId}&p_operacje_id=${operacjeId}`)
+        let url = `/permissions/access/history?user_id=${userId}&p_modul_id=${modulId}&p_operacje_id=${operacjeId}`;
+        if (accessId) {
+            url += `&access_id=${accessId}`;
+        }
+
+        fetch(url)
             .then(res => res.json())
             .then(data => {
                 if (data.success) {

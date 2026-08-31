@@ -121,35 +121,15 @@ class PAccessController extends Controller
             'uwagi' => 'nullable|string',
         ]);
 
-        // Move any expired duplicate to history and delete it before checking existence
-        $expiredAccess = PAccess::where('user_id', $validated['user_id'])
-            ->where('p_modul_id', $validated['p_modul_id'])
-            ->where('p_operacje_id', $validated['p_operacje_id'])
-            ->get()
-            ->filter(fn($acc) => !$acc->isValid());
-
-        foreach ($expiredAccess as $acc) {
-            \App\Models\PAccessHistory::create([
-                'user_id' => $acc->user_id,
-                'p_modul_id' => $acc->p_modul_id,
-                'p_operacje_id' => $acc->p_operacje_id,
-                'valid_from' => $acc->valid_from,
-                'valid_to' => $acc->valid_to,
-                'login' => $acc->login,
-                'uwagi' => $acc->uwagi,
-                'action' => 'wygasło',
-            ]);
-            $acc->delete();
-        }
-
-        // Check if active access already exists
-        $exists = PAccess::where('user_id', $validated['user_id'])
-            ->where('p_modul_id', $validated['p_modul_id'])
-            ->where('p_operacje_id', $validated['p_operacje_id'])
-            ->exists();
-
-        if ($exists) {
-            return back()->withErrors(['error' => 'Ten użytkownik posiada już takie aktywne uprawnienie.'])->withInput();
+        // Check if access already exists in an overlapping time period
+        if ($this->hasOverlappingAccess(
+            (int) $validated['user_id'],
+            (int) $validated['p_modul_id'],
+            (int) $validated['p_operacje_id'],
+            $validated['valid_from'] ?? null,
+            $validated['valid_to'] ?? null
+        )) {
+            return back()->withErrors(['error' => 'Ten użytkownik posiada już uprawnienie do tego modułu w nakładającym się okresie czasowym.'])->withInput();
         }
 
         $access = PAccess::create($validated);
@@ -195,14 +175,15 @@ class PAccessController extends Controller
             'uwagi' => 'nullable|string',
         ]);
 
-        $exists = PAccess::where('user_id', $validated['user_id'])
-            ->where('p_modul_id', $validated['p_modul_id'])
-            ->where('p_operacje_id', $validated['p_operacje_id'])
-            ->where('id', '!=', $access->id)
-            ->exists();
-
-        if ($exists) {
-            return back()->withErrors(['error' => 'Ten użytkownik posiada już takie uprawnienie.'])->withInput();
+        if ($this->hasOverlappingAccess(
+            (int) $validated['user_id'],
+            (int) $validated['p_modul_id'],
+            (int) $validated['p_operacje_id'],
+            $validated['valid_from'] ?? null,
+            $validated['valid_to'] ?? null,
+            $access->id
+        )) {
+            return back()->withErrors(['error' => 'Ten użytkownik posiada już uprawnienie do tego modułu w nakładającym się okresie czasowym.'])->withInput();
         }
 
         $access->update($validated);
@@ -255,6 +236,7 @@ class PAccessController extends Controller
             'user_id' => 'required|exists:users,id',
             'p_modul_id' => 'required|exists:P_modul,id',
             'p_operacje_id' => 'required|exists:P_operacje,id',
+            'access_id' => 'nullable|exists:P_access,id',
         ]);
 
         $history = \App\Models\PAccessHistory::with(['modul', 'operacja'])
@@ -264,11 +246,17 @@ class PAccessController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $active = PAccess::with(['modul', 'operacja'])
+        $activeQuery = PAccess::with(['modul', 'operacja'])
             ->where('user_id', $validated['user_id'])
             ->where('p_modul_id', $validated['p_modul_id'])
-            ->where('p_operacje_id', $validated['p_operacje_id'])
-            ->first();
+            ->where('p_operacje_id', $validated['p_operacje_id']);
+
+        if (!empty($validated['access_id'])) {
+            $active = $activeQuery->where('id', $validated['access_id'])->first();
+        } else {
+            $active = $activeQuery->get()->first(fn($a) => $a->isValid())
+                ?? $activeQuery->latest('id')->first();
+        }
 
         return response()->json([
             'success' => true,
@@ -494,40 +482,33 @@ class PAccessController extends Controller
             $dateFrom = $validFrom ? date('Y-m-d', strtotime($validFrom)) : null;
             $dateTo = $validTo ? date('Y-m-d', strtotime($validTo)) : null;
 
-            // Move any expired duplicate to history and delete it before checking existence
-            $expiredAccess = PAccess::where('user_id', $user->id)
+            // Check if access already exists with overlapping validity period
+            $overlapping = PAccess::where('user_id', $user->id)
                 ->where('p_modul_id', $modul->id)
                 ->where('p_operacje_id', $operacja->id)
-                ->get()
-                ->filter(fn($acc) => !$acc->isValid());
-
-            foreach ($expiredAccess as $acc) {
-                \App\Models\PAccessHistory::create([
-                    'user_id' => $acc->user_id,
-                    'p_modul_id' => $acc->p_modul_id,
-                    'p_operacje_id' => $acc->p_operacje_id,
-                    'valid_from' => $acc->valid_from,
-                    'valid_to' => $acc->valid_to,
-                    'login' => $acc->login,
-                    'uwagi' => $acc->uwagi,
-                    'action' => 'wygasło',
-                ]);
-                $acc->delete();
-            }
-
-            // Check if active access already exists
-            $exists = PAccess::where('user_id', $user->id)
-                ->where('p_modul_id', $modul->id)
-                ->where('p_operacje_id', $operacja->id)
+                ->where(function ($q) use ($dateFrom, $dateTo) {
+                    if ($dateTo) {
+                        $q->where(function ($sub) use ($dateTo) {
+                            $sub->whereNull('valid_from')
+                                ->orWhere('valid_from', '<=', $dateTo);
+                        });
+                    }
+                    if ($dateFrom) {
+                        $q->where(function ($sub) use ($dateFrom) {
+                            $sub->whereNull('valid_to')
+                                ->orWhere('valid_to', '>=', $dateFrom);
+                        });
+                    }
+                })
                 ->first();
 
-            if ($exists) {
-                // Update the existing active permission
-                $exists->update([
+            if ($overlapping) {
+                // Update the overlapping permission
+                $overlapping->update([
                     'valid_from' => $dateFrom,
                     'valid_to' => $dateTo,
-                    'login' => $login ?: $exists->login,
-                    'uwagi' => $uwagi ?: $exists->uwagi,
+                    'login' => $login ?: $overlapping->login,
+                    'uwagi' => $uwagi ?: $overlapping->uwagi,
                 ]);
 
                 \App\Models\PAccessHistory::create([
@@ -536,8 +517,8 @@ class PAccessController extends Controller
                     'p_operacje_id' => $operacja->id,
                     'valid_from' => $dateFrom,
                     'valid_to' => $dateTo,
-                    'login' => $login ?: $exists->login,
-                    'uwagi' => $uwagi ?: $exists->uwagi,
+                    'login' => $login ?: $overlapping->login,
+                    'uwagi' => $uwagi ?: $overlapping->uwagi,
                     'action' => 'zaktualizowano',
                 ]);
             } else {
@@ -576,6 +557,29 @@ class PAccessController extends Controller
         }
 
         return back()->with('success', $msg);
+    }
+
+    private function hasOverlappingAccess(int $userId, int $modulId, int $operacjeId, ?string $validFrom, ?string $validTo, ?int $ignoreId = null): bool
+    {
+        return PAccess::where('user_id', $userId)
+            ->where('p_modul_id', $modulId)
+            ->where('p_operacje_id', $operacjeId)
+            ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId))
+            ->where(function ($q) use ($validFrom, $validTo) {
+                if ($validTo) {
+                    $q->where(function ($sub) use ($validTo) {
+                        $sub->whereNull('valid_from')
+                            ->orWhere('valid_from', '<=', $validTo);
+                    });
+                }
+                if ($validFrom) {
+                    $q->where(function ($sub) use ($validFrom) {
+                        $sub->whereNull('valid_to')
+                            ->orWhere('valid_to', '>=', $validFrom);
+                    });
+                }
+            })
+            ->exists();
     }
 
     private function getModuleFullPath($modul)

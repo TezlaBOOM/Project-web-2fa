@@ -73,7 +73,7 @@ class PAccessControllerTest extends TestCase
             'p_operacje_id' => $operacja->id,
         ]);
 
-        $response->assertSessionHasErrors(['error' => 'Ten użytkownik posiada już takie aktywne uprawnienie.']);
+        $response->assertSessionHasErrors(['error' => 'Ten użytkownik posiada już uprawnienie do tego modułu w nakładającym się okresie czasowym.']);
     }
 
     public function test_mod_can_only_view_accesses_for_their_department_users()
@@ -232,22 +232,22 @@ class PAccessControllerTest extends TestCase
         $this->assertTrue($admin->hasActiveAccess('ERP', 'Edycja'));
     }
 
-    public function test_p_access_history_archiving_and_multiple_assignments()
+    public function test_p_access_history_and_multiple_assignments_in_different_periods()
     {
         $admin = $this->createAdmin();
         $user = User::factory()->create(['role' => 'user']);
         $modul = PModul::create(['nazwa' => 'Modul Historyczny']);
         $operacja = POperacje::create(['nazwa' => 'Test']);
 
-        // Create initial access
+        // Create initial access for period 1 (past/expired)
         $response = $this->actingAs($admin)->post(route('access.store'), [
             'user_id' => $user->id,
             'p_modul_id' => $modul->id,
             'p_operacje_id' => $operacja->id,
-            'valid_from' => now()->toDateString(),
-            'valid_to' => now()->addDays(5)->toDateString(),
-            'login' => 'user_login',
-            'uwagi' => 'Jakieś uwagi',
+            'valid_from' => '2026-01-01',
+            'valid_to' => '2026-03-31',
+            'login' => 'user_login_1',
+            'uwagi' => 'Pierwszy okres',
         ]);
 
         $response->assertRedirect();
@@ -256,35 +256,27 @@ class PAccessControllerTest extends TestCase
             'p_modul_id' => $modul->id,
             'p_operacje_id' => $operacja->id,
             'action' => 'nadano',
+            'login' => 'user_login_1',
         ]);
 
-        // Manually update P_access dates to expire it
-        $access = PAccess::where('user_id', $user->id)->first();
-        $access->update([
-            'valid_from' => now()->subDays(10)->toDateString(),
-            'valid_to' => now()->subDays(5)->toDateString(),
-        ]);
-
-        // Assigning same access again should archive expired one and create a new active one
+        // Assign same module + operation again for a different period (non-overlapping)
         $response = $this->actingAs($admin)->post(route('access.store'), [
             'user_id' => $user->id,
             'p_modul_id' => $modul->id,
             'p_operacje_id' => $operacja->id,
-            'valid_from' => now()->toDateString(),
-            'valid_to' => now()->addDays(10)->toDateString(),
+            'valid_from' => '2026-06-01',
+            'valid_to' => '2026-08-31',
             'login' => 'user_login_2',
-            'uwagi' => 'Nowe uwagi',
+            'uwagi' => 'Drugi okres',
         ]);
 
         $response->assertRedirect();
-        
-        // Assert expired was archived with 'wygasło' action
-        $this->assertDatabaseHas('p_access_history', [
-            'user_id' => $user->id,
-            'p_modul_id' => $modul->id,
-            'p_operacje_id' => $operacja->id,
-            'action' => 'wygasło',
-        ]);
+
+        // Both accesses must exist in P_access table simultaneously
+        $this->assertEquals(2, PAccess::where('user_id', $user->id)
+            ->where('p_modul_id', $modul->id)
+            ->where('p_operacje_id', $operacja->id)
+            ->count());
 
         // Assert new access history entry was created
         $this->assertDatabaseHas('p_access_history', [
@@ -304,7 +296,47 @@ class PAccessControllerTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertJsonPath('success', true);
-        $this->assertCount(3, $response->json('history')); // 'nadano' first, 'wygasło' second, 'nadano' third
+        $this->assertCount(2, $response->json('history'));
+    }
+
+    public function test_cannot_assign_overlapping_periods_for_same_module_and_operation()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['role' => 'user']);
+        $modul = PModul::create(['nazwa' => 'Modul Terminy']);
+        $operacja = POperacje::create(['nazwa' => 'Test']);
+
+        // First access: 2026-03-01 to 2026-06-30
+        PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-03-01',
+            'valid_to' => '2026-06-30',
+        ]);
+
+        // Overlapping attempt: 2026-05-01 to 2026-08-31
+        $response = $this->actingAs($admin)->post(route('access.store'), [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-05-01',
+            'valid_to' => '2026-08-31',
+        ]);
+
+        $response->assertSessionHasErrors(['error' => 'Ten użytkownik posiada już uprawnienie do tego modułu w nakładającym się okresie czasowym.']);
+
+        // Non-overlapping attempt: 2026-07-01 to 2026-10-31 (should succeed)
+        $responseSuccess = $this->actingAs($admin)->post(route('access.store'), [
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-07-01',
+            'valid_to' => '2026-10-31',
+        ]);
+
+        $responseSuccess->assertRedirect();
+        $this->assertEquals(2, PAccess::where('user_id', $user->id)->count());
     }
 
     public function test_access_csv_features()
