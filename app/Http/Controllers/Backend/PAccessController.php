@@ -71,14 +71,38 @@ class PAccessController extends Controller
             });
         }
 
+        $accessSortBy  = $request->get('access_sort_by', 'module');
+        $accessSortDir = $request->get('access_sort_dir', 'asc');
+        if (!in_array($accessSortBy, ['module', 'date'])) {
+            $accessSortBy = 'module';
+        }
+        if (!in_array($accessSortDir, ['asc', 'desc'])) {
+            $accessSortDir = 'asc';
+        }
+
         $selectedUser    = null;
         $selectedAccesses = null;
         if ($userId) {
             $selectedUser = User::with('departments')->find($userId);
             if ($selectedUser) {
-                $selectedAccesses = PAccess::with(['modul.parent', 'operacja'])
+                $accessQuery = PAccess::with(['modul.parent', 'operacja'])
                     ->where('user_id', $userId)
-                    ->get();
+                    ->select('P_access.*')
+                    ->join('P_modul', 'P_access.p_modul_id', '=', 'P_modul.id')
+                    ->leftJoin('P_operacje', 'P_access.p_operacje_id', '=', 'P_operacje.id');
+
+                if ($accessSortBy === 'date') {
+                    $accessQuery->orderBy('valid_from', $accessSortDir)
+                                ->orderBy('valid_to', $accessSortDir)
+                                ->orderBy('P_modul.nazwa', 'asc');
+                } else {
+                    // Domyślnie: po nazwie modułu, a potem po dacie
+                    $accessQuery->orderBy('P_modul.nazwa', $accessSortDir)
+                                ->orderBy('valid_from', 'asc')
+                                ->orderBy('valid_to', 'asc');
+                }
+
+                $selectedAccesses = $accessQuery->get();
             }
         }
 
@@ -92,7 +116,7 @@ class PAccessController extends Controller
         $users = $baseQuery->orderBy($sortBy, $sortDir)->paginate(20)->withQueryString();
 
         return view('Backend.admin.permissions.access.index', compact(
-            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'sortBy', 'sortDir', 'userStatus'
+            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'sortBy', 'sortDir', 'userStatus', 'accessSortBy', 'accessSortDir'
         ));
     }
 

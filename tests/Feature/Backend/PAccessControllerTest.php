@@ -536,4 +536,114 @@ class PAccessControllerTest extends TestCase
         $responseInactive->assertSee('Nieaktywny Piotr');
         $responseInactive->assertDontSee('Aktywny Jan');
     }
+
+    public function test_access_permissions_sorting_default_module_and_date()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['role' => 'user']);
+        
+        $modZ = PModul::create(['nazwa' => 'Zarzadzanie']);
+        $modA = PModul::create(['nazwa' => 'Administracja']);
+        $op = POperacje::create(['nazwa' => 'Podglad']);
+
+        // Create permission for Zarzadzanie (later alphabetically)
+        PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modZ->id,
+            'p_operacje_id' => $op->id,
+            'valid_from' => '2026-01-01',
+            'valid_to' => '2026-06-30',
+        ]);
+
+        // Create two permissions for Administracja with different dates
+        PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modA->id,
+            'p_operacje_id' => $op->id,
+            'valid_from' => '2026-07-01',
+            'valid_to' => '2026-12-31',
+        ]);
+        PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modA->id,
+            'p_operacje_id' => $op->id,
+            'valid_from' => '2026-01-01',
+            'valid_to' => '2026-03-31',
+        ]);
+
+        // 1. Default sorting (module asc, then date asc)
+        $response = $this->actingAs($admin)->get(route('access.index', ['user_id' => $user->id]));
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        
+        $posA = strpos($html, 'Administracja');
+        $posZ = strpos($html, 'Zarzadzanie');
+        $this->assertTrue($posA < $posZ, "Administracja should appear before Zarzadzanie");
+
+        $posDateEarly = strpos($html, 'od: 2026-01-01');
+        $posDateLate  = strpos($html, 'od: 2026-07-01');
+        $this->assertTrue($posDateEarly < $posDateLate, "Earlier date (2026-01-01) should appear before (2026-07-01)");
+
+        // 2. Sort by module desc
+        $responseDesc = $this->actingAs($admin)->get(route('access.index', [
+            'user_id' => $user->id,
+            'access_sort_by' => 'module',
+            'access_sort_dir' => 'desc',
+        ]));
+        $responseDesc->assertStatus(200);
+        $htmlDesc = $responseDesc->getContent();
+        $posADesc = strpos($htmlDesc, 'Administracja');
+        $posZDesc = strpos($htmlDesc, 'Zarzadzanie');
+        $this->assertTrue($posZDesc < $posADesc, "Zarzadzanie should appear before Administracja when sorted desc");
+    }
+
+    public function test_access_permissions_sorting_by_date()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['role' => 'user']);
+        
+        $mod1 = PModul::create(['nazwa' => 'Modul Styczen']);
+        $mod2 = PModul::create(['nazwa' => 'Modul Grudzien']);
+        $op = POperacje::create(['nazwa' => 'Podglad']);
+
+        PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $mod1->id,
+            'p_operacje_id' => $op->id,
+            'valid_from' => '2026-01-01',
+            'valid_to' => '2026-01-31',
+        ]);
+
+        PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $mod2->id,
+            'p_operacje_id' => $op->id,
+            'valid_from' => '2026-12-01',
+            'valid_to' => '2026-12-31',
+        ]);
+
+        // Sort by date asc
+        $responseAsc = $this->actingAs($admin)->get(route('access.index', [
+            'user_id' => $user->id,
+            'access_sort_by' => 'date',
+            'access_sort_dir' => 'asc',
+        ]));
+        $responseAsc->assertStatus(200);
+        $htmlAsc = $responseAsc->getContent();
+        $pos1Asc = strpos($htmlAsc, 'Modul Styczen');
+        $pos2Asc = strpos($htmlAsc, 'Modul Grudzien');
+        $this->assertTrue($pos1Asc < $pos2Asc, "January module should appear before December module when sorted by date asc");
+
+        // Sort by date desc
+        $responseDesc = $this->actingAs($admin)->get(route('access.index', [
+            'user_id' => $user->id,
+            'access_sort_by' => 'date',
+            'access_sort_dir' => 'desc',
+        ]));
+        $responseDesc->assertStatus(200);
+        $htmlDesc = $responseDesc->getContent();
+        $pos1Desc = strpos($htmlDesc, 'Modul Styczen');
+        $pos2Desc = strpos($htmlDesc, 'Modul Grudzien');
+        $this->assertTrue($pos2Desc < $pos1Desc, "December module should appear before January module when sorted by date desc");
+    }
 }

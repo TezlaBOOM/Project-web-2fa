@@ -98,7 +98,7 @@
 
                     @forelse($users as $user)
                         @php $isSelected = $selectedUser && $selectedUser->id === $user->id; @endphp
-                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'dept_id' => $deptId, 'user_status' => $userStatus])) }}"
+                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'dept_id' => $deptId, 'user_status' => $userStatus, 'sort_by' => $sortBy, 'sort_dir' => $sortDir, 'access_sort_by' => $accessSortBy, 'access_sort_dir' => $accessSortDir])) }}"
                            style="display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.04); text-decoration: none; background: {{ $isSelected ? 'rgba(99,102,241,0.1)' : 'transparent' }}; transition: background 0.12s;"
                            class="user-row {{ $isSelected ? 'selected' : '' }}">
                             <div style="width: 34px; height: 34px; border-radius: 50%; background: {{ $isSelected ? 'var(--primary)' : 'rgba(99,102,241,0.18)' }}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; color: {{ $isSelected ? 'white' : 'var(--primary)' }}; flex-shrink: 0;">
@@ -216,6 +216,30 @@
                         </div>
                     </div>
 
+                    {{-- Pasek nagłówka uprawnień z sortowaniem --}}
+                    @if($selectedAccesses && $selectedAccesses->count() > 0)
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-color);">
+                                Przypisane uprawnienia ({{ $selectedAccesses->count() }})
+                            </span>
+                            <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--text-muted);">
+                                <span>Sortuj:</span>
+                                <a href="{{ request()->fullUrlWithQuery(['access_sort_by' => 'module', 'access_sort_dir' => ($accessSortBy === 'module' && $accessSortDir === 'asc') ? 'desc' : 'asc']) }}"
+                                   style="color: {{ $accessSortBy === 'module' ? 'var(--primary)' : 'inherit' }}; text-decoration: none; padding: 0.18rem 0.5rem; border-radius: 4px; background: {{ $accessSortBy === 'module' ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)' }}; display: inline-flex; align-items: center; gap: 0.2rem; font-weight: 500;"
+                                   class="sort-header" title="Sortuj po nazwie modułu">
+                                    <span>Moduł</span>
+                                    <span style="opacity: {{ $accessSortBy === 'module' ? '1' : '0.3' }}; font-size: 0.65rem;">{{ $accessSortBy === 'module' ? ($accessSortDir === 'asc' ? '▲' : '▼') : '▲' }}</span>
+                                </a>
+                                <a href="{{ request()->fullUrlWithQuery(['access_sort_by' => 'date', 'access_sort_dir' => ($accessSortBy === 'date' && $accessSortDir === 'asc') ? 'desc' : 'asc']) }}"
+                                   style="color: {{ $accessSortBy === 'date' ? 'var(--primary)' : 'inherit' }}; text-decoration: none; padding: 0.18rem 0.5rem; border-radius: 4px; background: {{ $accessSortBy === 'date' ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)' }}; display: inline-flex; align-items: center; gap: 0.2rem; font-weight: 500;"
+                                   class="sort-header" title="Sortuj po dacie ważności">
+                                    <span>Data</span>
+                                    <span style="opacity: {{ $accessSortBy === 'date' ? '1' : '0.3' }}; font-size: 0.65rem;">{{ $accessSortBy === 'date' ? ($accessSortDir === 'asc' ? '▲' : '▼') : '▲' }}</span>
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
                     {{-- Drzewko uprawnień --}}
                     @if($selectedAccesses && $selectedAccesses->count() > 0)
                         @php
@@ -239,6 +263,61 @@
                                     $tree[$rootName][$key] = [];
                                 }
                                 $tree[$rootName][$key][] = $access;
+                            }
+
+                            if ($accessSortBy === 'module') {
+                                uksort($tree, fn($a, $b) => ($accessSortDir === 'desc' ? -1 : 1) * strnatcasecmp($a, $b));
+                                foreach ($tree as $rName => &$submods) {
+                                    uksort($submods, fn($a, $b) => ($accessSortDir === 'desc' ? -1 : 1) * strnatcasecmp($a, $b));
+                                    foreach ($submods as $sName => &$accList) {
+                                        usort($accList, function($a, $b) {
+                                            $fromA = $a->valid_from ? $a->valid_from->format('Y-m-d') : '0000-00-00';
+                                            $fromB = $b->valid_from ? $b->valid_from->format('Y-m-d') : '0000-00-00';
+                                            if ($fromA !== $fromB) {
+                                                return strcmp($fromA, $fromB);
+                                            }
+                                            $toA = $a->valid_to ? $a->valid_to->format('Y-m-d') : '9999-99-99';
+                                            $toB = $b->valid_to ? $b->valid_to->format('Y-m-d') : '9999-99-99';
+                                            return strcmp($toA, $toB);
+                                        });
+                                    }
+                                }
+                                unset($submods, $accList);
+                            } elseif ($accessSortBy === 'date') {
+                                uksort($tree, function($a, $b) use ($tree, $accessSortDir) {
+                                    $getDate = function($branch) use ($accessSortDir) {
+                                        $dates = [];
+                                        foreach ($branch as $accs) {
+                                            foreach ($accs as $acc) {
+                                                $dates[] = $acc->valid_from ? $acc->valid_from->format('Y-m-d') : ($accessSortDir === 'desc' ? '0000-00-00' : '9999-99-99');
+                                            }
+                                        }
+                                        sort($dates);
+                                        return $accessSortDir === 'desc' ? end($dates) : ($dates[0] ?? '');
+                                    };
+                                    $dateA = $getDate($tree[$a]);
+                                    $dateB = $getDate($tree[$b]);
+                                    if ($dateA !== $dateB) {
+                                        return ($accessSortDir === 'desc' ? -1 : 1) * strcmp($dateA, $dateB);
+                                    }
+                                    return strnatcasecmp($a, $b);
+                                });
+
+                                foreach ($tree as $rName => &$submods) {
+                                    foreach ($submods as $sName => &$accList) {
+                                        usort($accList, function($a, $b) use ($accessSortDir) {
+                                            $fromA = $a->valid_from ? $a->valid_from->format('Y-m-d') : ($accessSortDir === 'desc' ? '0000-00-00' : '9999-99-99');
+                                            $fromB = $b->valid_from ? $b->valid_from->format('Y-m-d') : ($accessSortDir === 'desc' ? '0000-00-00' : '9999-99-99');
+                                            if ($fromA !== $fromB) {
+                                                return ($accessSortDir === 'desc' ? -1 : 1) * strcmp($fromA, $fromB);
+                                            }
+                                            $toA = $a->valid_to ? $a->valid_to->format('Y-m-d') : ($accessSortDir === 'desc' ? '0000-00-00' : '9999-99-99');
+                                            $toB = $b->valid_to ? $b->valid_to->format('Y-m-d') : ($accessSortDir === 'desc' ? '0000-00-00' : '9999-99-99');
+                                            return ($accessSortDir === 'desc' ? -1 : 1) * strcmp($toA, $toB);
+                                        });
+                                    }
+                                }
+                                unset($submods, $accList);
                             }
                         @endphp
 
