@@ -8,13 +8,14 @@
         <div class="header-bar">
             <div class="user-greeting">
                 @if($preselectedUser)
-                    <h1>Nadaj uprawnienie</h1>
+                    <h1>{{ isset($duplicateAccess) && $duplicateAccess ? 'Duplikuj uprawnienie' : 'Nadaj uprawnienie' }}</h1>
                     <p>Użytkownik: <strong style="color: var(--primary);">{{ $preselectedUser->name }}</strong> &bull; {{ $preselectedUser->email }}</p>
                 @else
-                    <h1>Nadaj uprawnienie</h1>
+                    <h1>{{ isset($duplicateAccess) && $duplicateAccess ? 'Duplikuj uprawnienie' : 'Nadaj uprawnienie' }}</h1>
                 @endif
             </div>
-            <a href="{{ route('access.index', $preselectedUser ? ['user_id' => $preselectedUser->id] : []) }}"
+            <a href="{{ url()->previous() !== url()->current() ? url()->previous() : route('access.index', $preselectedUser ? ['user_id' => $preselectedUser->id] : []) }}"
+               onclick="if(window.history.length > 1) { window.history.back(); return false; }"
                style="color: var(--text-muted); text-decoration: none;">← Powrót</a>
         </div>
 
@@ -47,7 +48,7 @@
                             <select name="user_id" id="user_id" class="form-control" required>
                                 <option value="">-- Wybierz użytkownika --</option>
                                 @foreach($users as $u)
-                                    <option value="{{ $u->id }}" {{ old('user_id') == $u->id ? 'selected' : '' }}>{{ $u->name }} ({{ $u->email }})</option>
+                                    <option value="{{ $u->id }}" {{ old('user_id', $duplicateAccess?->user_id) == $u->id ? 'selected' : '' }}>{{ $u->name }} ({{ $u->email }})</option>
                                 @endforeach
                             </select>
                             @error('user_id') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
@@ -59,7 +60,7 @@
                         <select name="p_modul_id" id="p_modul_id" class="form-control" required>
                             <option value="">-- Wybierz moduł --</option>
                             @foreach($modules as $module)
-                                @include('Backend.admin.permissions.modules._option', ['module' => $module, 'depth' => 0, 'selectedId' => old('p_modul_id')])
+                                @include('Backend.admin.permissions.modules._option', ['module' => $module, 'depth' => 0, 'selectedId' => old('p_modul_id', $duplicateAccess?->p_modul_id)])
                             @endforeach
                         </select>
                         @error('p_modul_id') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
@@ -70,7 +71,7 @@
                         <select name="p_operacje_id" id="p_operacje_id" class="form-control" required>
                             <option value="">-- Wybierz operację --</option>
                             @foreach($operations as $operation)
-                                <option value="{{ $operation->id }}" {{ old('p_operacje_id') == $operation->id ? 'selected' : '' }}>{{ $operation->nazwa }}</option>
+                                <option value="{{ $operation->id }}" {{ old('p_operacje_id', $duplicateAccess?->p_operacje_id) == $operation->id ? 'selected' : '' }}>{{ $operation->nazwa }}</option>
                             @endforeach
                         </select>
                         @error('p_operacje_id') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
@@ -79,12 +80,12 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="valid_from" class="form-label">Ważne od</label>
-                            <input type="date" name="valid_from" id="valid_from" class="form-control" value="{{ old('valid_from') }}">
+                            <input type="date" name="valid_from" id="valid_from" class="form-control" value="{{ old('valid_from', $duplicateAccess?->valid_from ? $duplicateAccess->valid_from->format('Y-m-d') : '') }}">
                             @error('valid_from') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
                         </div>
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="valid_to" class="form-label">Ważne do</label>
-                            <input type="date" name="valid_to" id="valid_to" class="form-control" value="{{ old('valid_to') }}">
+                            <input type="date" name="valid_to" id="valid_to" class="form-control" value="{{ old('valid_to', $duplicateAccess?->valid_to ? $duplicateAccess->valid_to->format('Y-m-d') : '') }}">
                             @error('valid_to') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
                         </div>
                     </div>
@@ -92,19 +93,19 @@
                     <!-- Login -->
                     <div class="form-group">
                         <label for="login" class="form-label">Login</label>
-                        <input type="text" name="login" id="login" class="form-control" value="{{ old('login') }}" placeholder="np. jkowalski">
+                        <input type="text" name="login" id="login" class="form-control" value="{{ old('login', $duplicateAccess?->login) }}" placeholder="np. jkowalski">
                         @error('login') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
                     </div>
 
                     <!-- Uwagi -->
                     <div class="form-group">
                         <label for="uwagi" class="form-label">Uwagi</label>
-                        <textarea name="uwagi" id="uwagi" class="form-control" placeholder="Dodatkowe informacje, uwagi..." rows="3">{{ old('uwagi') }}</textarea>
+                        <textarea name="uwagi" id="uwagi" class="form-control" placeholder="Dodatkowe informacje, uwagi..." rows="3">{{ old('uwagi', $duplicateAccess?->uwagi) }}</textarea>
                         @error('uwagi') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
                     </div>
 
                     <div style="margin-top: 1.5rem;">
-                        <button type="submit" class="btn-primary">Dodaj uprawnienie</button>
+                        <button type="submit" class="btn-primary">{{ isset($duplicateAccess) && $duplicateAccess ? 'Dodaj nową pozycję' : 'Dodaj uprawnienie' }}</button>
                     </div>
                 </form>
             </div>

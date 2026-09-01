@@ -41,4 +41,28 @@ class PAccess extends Model
     {
         return $this->belongsTo(POperacje::class, 'p_operacje_id');
     }
+
+    /**
+     * Zwraca wydziały pracownika, których okres zatrudnienia pokrywa się z okresem ważności uprawnienia.
+     */
+    public function getMatchingDepartments($user = null)
+    {
+        $user = $user ?? $this->user;
+        if (!$user || !$user->departments) {
+            return collect();
+        }
+
+        return $user->departments->filter(function ($dept) {
+            $deptOd = $dept->pivot->od ? \Carbon\Carbon::parse($dept->pivot->od)->startOfDay() : null;
+            $deptDo = $dept->pivot->do ? \Carbon\Carbon::parse($dept->pivot->do)->endOfDay() : null;
+
+            $accessFrom = $this->valid_from ? $this->valid_from->startOfDay() : null;
+            $accessTo   = $this->valid_to ? $this->valid_to->endOfDay() : null;
+
+            $startCondition = (!$accessFrom || !$deptDo || $accessFrom->lte($deptDo));
+            $endCondition   = (!$accessTo || !$deptOd || $accessTo->gte($deptOd));
+
+            return $startCondition && $endCondition;
+        });
+    }
 }

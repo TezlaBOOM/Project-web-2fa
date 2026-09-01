@@ -646,4 +646,132 @@ class PAccessControllerTest extends TestCase
         $pos2Desc = strpos($htmlDesc, 'Modul Grudzien');
         $this->assertTrue($pos2Desc < $pos1Desc, "December module should appear before January module when sorted by date desc");
     }
+
+    public function test_admin_can_access_create_form_with_duplicate_id_and_prefilled_data()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['role' => 'user']);
+        $modul = PModul::create(['nazwa' => 'Finanse']);
+        $operacja = POperacje::create(['nazwa' => 'Eksport']);
+
+        $access = PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-03-01',
+            'valid_to' => '2026-06-30',
+            'login' => 'j_finanse',
+            'uwagi' => 'Uprawnienie pierwotne',
+        ]);
+
+        // Check edit view contains duplicate button
+        $editResponse = $this->actingAs($admin)->get(route('access.edit', $access->id));
+        $editResponse->assertStatus(200);
+        $editResponse->assertSee(route('access.create', ['duplicate_id' => $access->id]));
+        $editResponse->assertSee('Duplikuj');
+
+        // Check create view with duplicate_id pre-populates fields
+        $createResponse = $this->actingAs($admin)->get(route('access.create', ['duplicate_id' => $access->id]));
+        $createResponse->assertStatus(200);
+        $createResponse->assertSee('Duplikuj uprawnienie');
+        $createResponse->assertSee('Dodaj nową pozycję');
+        $createResponse->assertSee('value="2026-03-01"', false);
+        $createResponse->assertSee('value="2026-06-30"', false);
+        $createResponse->assertSee('value="j_finanse"', false);
+        $createResponse->assertSee('Uprawnienie pierwotne');
+    }
+
+    public function test_access_matching_departments_logic()
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $deptIT = Departament::create(['Nazwa' => 'Dział IT']);
+        $deptFinanse = Departament::create(['Nazwa' => 'Dział Finansów']);
+
+        // User worked in IT from Jan 1 to Jun 30, and in Finanse from Jul 1 to Dec 31
+        $user->departments()->attach($deptIT->ID_Departament, [
+            'od' => '2026-01-01',
+            'do' => '2026-06-30',
+        ]);
+        $user->departments()->attach($deptFinanse->ID_Departament, [
+            'od' => '2026-07-01',
+            'do' => '2026-12-31',
+        ]);
+        $user->load('departments');
+
+        $modul = PModul::create(['nazwa' => 'Modul Test']);
+        $operacja = POperacje::create(['nazwa' => 'Operacja Test']);
+
+        // 1. Access completely inside IT period
+        $accessIT = PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-02-01',
+            'valid_to' => '2026-04-30',
+        ]);
+        $matchedIT = $accessIT->getMatchingDepartments($user);
+        $this->assertCount(1, $matchedIT);
+        $this->assertEquals('Dział IT', $matchedIT->first()->Nazwa);
+
+        // 2. Access completely inside Finanse period
+        $accessFinanse = PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-08-01',
+            'valid_to' => '2026-10-31',
+        ]);
+        $matchedFinanse = $accessFinanse->getMatchingDepartments($user);
+        $this->assertCount(1, $matchedFinanse);
+        $this->assertEquals('Dział Finansów', $matchedFinanse->first()->Nazwa);
+
+        // 3. Access overlapping both periods (May 1 to Aug 31)
+        $accessBoth = PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-05-01',
+            'valid_to' => '2026-08-31',
+        ]);
+        $matchedBoth = $accessBoth->getMatchingDepartments($user);
+        $this->assertCount(2, $matchedBoth);
+
+        // 4. Access outside any department period (year 2027)
+        $accessNone = PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2027-01-01',
+            'valid_to' => '2027-05-01',
+        ]);
+        $matchedNone = $accessNone->getMatchingDepartments($user);
+        $this->assertCount(0, $matchedNone);
+    }
+
+    public function test_access_index_displays_matching_departments()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['role' => 'user']);
+        $dept = Departament::create(['Nazwa' => 'Wydział Logistyki']);
+        $user->departments()->attach($dept->ID_Departament, [
+            'od' => '2026-01-01',
+            'do' => '2026-12-31',
+        ]);
+
+        $modul = PModul::create(['nazwa' => 'Magazyn']);
+        $operacja = POperacje::create(['nazwa' => 'Wydanie']);
+
+        PAccess::create([
+            'user_id' => $user->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $operacja->id,
+            'valid_from' => '2026-03-01',
+            'valid_to' => '2026-09-30',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('access.index', ['user_id' => $user->id]));
+        $response->assertStatus(200);
+        $response->assertSee('Wydział Logistyki');
+    }
 }
+

@@ -9,7 +9,9 @@
             <div class="user-greeting">
                 <h1>Edytuj uprawnienie</h1>
             </div>
-            <a href="{{ route('access.index') }}" style="color: var(--text-muted); text-decoration: none;">← Powrót do listy</a>
+            <a href="{{ url()->previous() !== url()->current() ? url()->previous() : route('access.index', ['user_id' => $access->user_id]) }}"
+               onclick="if(window.history.length > 1) { window.history.back(); return false; }"
+               style="color: var(--text-muted); text-decoration: none;">← Powrót</a>
         </div>
 
         <div style="max-width: 600px;">
@@ -84,8 +86,15 @@
                         @error('uwagi') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
                     </div>
 
-                    <div style="margin-top: 2rem;">
+                    <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 2rem; flex-wrap: wrap;">
                         <button type="submit" class="btn-primary">Zapisz zmiany</button>
+                        <a href="{{ route('access.create', ['duplicate_id' => $access->id]) }}"
+                           class="btn-secondary"
+                           style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.2rem; border-radius: 6px; background: rgba(99,102,241,0.1); color: var(--primary); font-size: 0.9rem; font-weight: 500; border: 1px solid rgba(99,102,241,0.25); transition: background 0.15s;"
+                           onmouseover="this.style.background='rgba(99,102,241,0.2)'"
+                           onmouseout="this.style.background='rgba(99,102,241,0.1)'">
+                            📋 Duplikuj
+                        </a>
                     </div>
                 </form>
             </div>

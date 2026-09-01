@@ -346,6 +346,31 @@
                                                         <div class="submodule-label" title="{{ $childName === '__root__' ? $rootName : $childName }} — {{ $access->operacja->nazwa ?? '—' }}">
                                                             {{ $childName === '__root__' ? $rootName : $childName }}
                                                         </div>
+                                                        @php
+                                                            $matchingDepts = $access->getMatchingDepartments($selectedUser);
+                                                        @endphp
+                                                        <div style="display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.25rem; align-items: center;">
+                                                            @if($matchingDepts->isNotEmpty())
+                                                                @foreach($matchingDepts as $mDept)
+                                                                    @php
+                                                                        $isDeptExpired = $mDept->pivot->do && $mDept->pivot->do < date('Y-m-d');
+                                                                        $isDeptFuture  = $mDept->pivot->od && $mDept->pivot->od > date('Y-m-d');
+                                                                        $isDeptActive  = !$isDeptExpired && !$isDeptFuture;
+                                                                    @endphp
+                                                                    <span title="Wydział pracownika w okresie uprawnienia: {{ $mDept->Nazwa }}@if($mDept->pivot->od) (od: {{ $mDept->pivot->od }})@endif @if($mDept->pivot->do) (do: {{ $mDept->pivot->do }})@endif @if(!$isDeptActive) - NIEAKTYWNY @else - AKTYWNY @endif"
+                                                                          style="background: {{ $isDeptActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.15)' }}; color: {{ $isDeptActive ? 'var(--success)' : '#ef4444' }}; font-size: 0.68rem; font-weight: 600; padding: 0.1rem 0.45rem; border-radius: 999px; border: 1px solid {{ $isDeptActive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.3)' }}; display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap;">
+                                                                        <span>{{ $mDept->Nazwa }}</span>
+                                                                        @if($mDept->pivot->do)
+                                                                            <span style="font-size: 0.62rem; opacity: 0.85;">(do: {{ $mDept->pivot->do }})</span>
+                                                                        @endif
+                                                                    </span>
+                                                                @endforeach
+                                                            @else
+                                                                <span style="font-size: 0.68rem; color: var(--text-muted); font-style: italic;" title="Brak przypisanego wydziału w okresie trwania tego uprawnienia">
+                                                                    (brak przypisanego wydziału)
+                                                                </span>
+                                                            @endif
+                                                        </div>
                                                     </div>
                                                     <div class="submodule-status-area">
                                                         <div>Status:</div>
@@ -410,6 +435,9 @@
                         <div style="color: var(--text-muted); font-weight: 500;">Status:</div>
                         <div id="active-status" style="font-weight: 600;">—</div>
                         
+                        <div style="color: var(--text-muted); font-weight: 500;">Wydział:</div>
+                        <div id="active-department">—</div>
+
                         <div style="color: var(--text-muted); font-weight: 500;">Login:</div>
                         <div id="active-login">—</div>
 
@@ -495,6 +523,7 @@
         
         // Reset content
         document.getElementById('active-status').textContent = 'Ładowanie...';
+        document.getElementById('active-department').textContent = '—';
         document.getElementById('active-login').textContent = '—';
         document.getElementById('active-validity').textContent = '—';
         document.getElementById('active-uwagi').textContent = '—';
@@ -517,6 +546,7 @@
                         const statusEl = document.getElementById('active-status');
                         statusEl.textContent = data.active.status;
                         statusEl.className = data.active.status === 'Aktywny' ? 'submodule-status-active' : 'submodule-status-inactive';
+                        document.getElementById('active-department').textContent = data.active.departments || 'Brak dopasowanego wydziału';
                         document.getElementById('active-login').textContent = data.active.login || 'Brak';
                         document.getElementById('active-validity').textContent = `od ${data.active.valid_from} do ${data.active.valid_to}`;
                         document.getElementById('active-uwagi').textContent = data.active.uwagi || 'Brak uwag';

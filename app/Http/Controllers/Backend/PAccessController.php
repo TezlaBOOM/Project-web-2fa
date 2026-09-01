@@ -120,15 +120,17 @@ class PAccessController extends Controller
         ));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $this->authorizeAdmin();
-        $preselectedUser = request('user_id') ? User::find(request('user_id')) : null;
+        $duplicateAccess = $request->get('duplicate_id') ? PAccess::find($request->get('duplicate_id')) : null;
+        $userId = $request->get('user_id') ?? ($duplicateAccess ? $duplicateAccess->user_id : null);
+        $preselectedUser = $userId ? User::find($userId) : null;
         $users = $preselectedUser ? collect() : User::orderBy('name')->get();
         $modules = PModul::whereNull('parent_id')->with('children')->orderBy('nazwa')->get();
         $operations = POperacje::orderBy('nazwa')->get();
 
-        return view('Backend.admin.permissions.access.create', compact('users', 'modules', 'operations', 'preselectedUser'));
+        return view('Backend.admin.permissions.access.create', compact('users', 'modules', 'operations', 'preselectedUser', 'duplicateAccess'));
     }
 
     public function store(Request $request)
@@ -282,6 +284,15 @@ class PAccessController extends Controller
                 ?? $activeQuery->latest('id')->first();
         }
 
+        $targetUser = User::with('departments')->find($validated['user_id']);
+        $matchingDepts = $active ? $active->getMatchingDepartments($targetUser)->map(function($d) {
+            $info = $d->Nazwa;
+            if ($d->pivot->od || $d->pivot->do) {
+                $info .= ' (' . ($d->pivot->od ? 'od ' . $d->pivot->od : '') . ($d->pivot->do ? ' do ' . $d->pivot->do : '') . ')';
+            }
+            return $info;
+        })->implode(', ') : null;
+
         return response()->json([
             'success' => true,
             'active' => $active ? [
@@ -290,6 +301,7 @@ class PAccessController extends Controller
                 'login' => $active->login ?? 'Brak',
                 'uwagi' => $active->uwagi ?? 'Brak',
                 'status' => $active->isValid() ? 'Aktywny' : 'Nieaktywny/Wygasł',
+                'departments' => $matchingDepts ?: 'Brak dopasowanego wydziału',
             ] : null,
             'history' => $history->map(function($item) {
                 return [
