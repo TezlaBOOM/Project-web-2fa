@@ -14,7 +14,7 @@
             </div>
             
             <div style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.875rem; font-weight: 600;">
-                Zalogowano jako Administrator
+                Zalogowano jako {{ auth()->user()->role === 'admin' ? 'Administrator' : (auth()->user()->role === 'view' ? 'Podgląd (View)' : ucfirst(auth()->user()->role)) }}
             </div>
         </div>
 
@@ -33,33 +33,53 @@
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <span>Lista użytkowników</span>
-                <a href="{{ route('users.create') }}" class="btn-add-user">
-                    <span style="font-size: 1.1rem; line-height: 1;">＋</span> Dodaj użytkownika
-                </a>
+                @if(auth()->user()->role === 'admin')
+                    <a href="{{ route('users.create') }}" class="btn-add-user">
+                        <span style="font-size: 1.1rem; line-height: 1;">＋</span> Dodaj użytkownika
+                    </a>
+                @endif
             </div>
             <div class="card-body" style="padding: 1.5rem;">
                 <!-- Wyszukiwarka i filtry -->
                 <form method="GET" action="{{ route('users.index') }}" id="search-form" style="margin-bottom: 1.25rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                    <div style="position: relative; flex: 1; max-width: 400px; min-width: 200px;">
+                    <div style="position: relative; flex: 1; max-width: 320px; min-width: 180px;">
                         <input type="text" name="search" id="search-input" value="{{ $search ?? '' }}" 
                                placeholder="Szukaj po nazwie, emailu lub historii..." 
                                class="form-control" style="width: 100%; padding-right: 2rem;">
                         @if(!empty($search))
-                            <a href="{{ route('users.index', array_filter(['status' => $status ?? ''])) }}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); text-decoration: none; font-size: 1.1rem;" title="Wyczyść wyszukiwanie">✕</a>
+                            <a href="{{ route('users.index', array_filter(['status' => $status ?? '', 'dept_status' => $deptStatus ?? '', 'dept_from' => $deptFrom ?? '', 'dept_to' => $deptTo ?? ''])) }}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); text-decoration: none; font-size: 1.1rem;" title="Wyczyść wyszukiwanie">✕</a>
                         @endif
                     </div>
 
-                    {{-- Filtr statusu --}}
-                    <div style="min-width: 170px;">
+                    {{-- Filtr statusu konta --}}
+                    <div style="min-width: 160px;">
                         <select name="status" id="status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
-                            <option value="">Wszystkie statusy</option>
+                            <option value="">Wszystkie statusy konta</option>
                             <option value="active" {{ ($status ?? '') === 'active' || ($status ?? '') === '1' ? 'selected' : '' }}>Tylko aktywni</option>
                             <option value="inactive" {{ ($status ?? '') === 'inactive' || ($status ?? '') === '0' ? 'selected' : '' }}>Tylko nieaktywni</option>
                         </select>
                     </div>
 
-                    <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem; font-size: 0.85rem;">Szukaj</button>
-                    @if(!empty($search) || !empty($status))
+                    {{-- Filtr przynależności do wydziału --}}
+                    <div style="min-width: 190px;">
+                        <select name="dept_status" id="dept-status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
+                            <option value="">Wszystkie okresy wydziału</option>
+                            <option value="active" {{ ($deptStatus ?? '') === 'active' ? 'selected' : '' }}>Tylko aktywny wydział</option>
+                            <option value="expired" {{ ($deptStatus ?? '') === 'expired' ? 'selected' : '' }}>Z wygasłym wydziałem</option>
+                            <option value="none" {{ ($deptStatus ?? '') === 'none' ? 'selected' : '' }}>Bez wydziału</option>
+                        </select>
+                    </div>
+
+                    {{-- Zakres dat wydziału --}}
+                    <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem 0.6rem;">
+                        <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Wydział:</span>
+                        <input type="date" name="dept_from" id="dept_from" value="{{ $deptFrom ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Przynależność do wydziału od" placeholder="Od">
+                        <span style="font-size: 0.78rem; color: var(--text-muted);">-</span>
+                        <input type="date" name="dept_to" id="dept_to" value="{{ $deptTo ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Przynależność do wydziału do" placeholder="Do">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem; font-size: 0.85rem;">Filtruj</button>
+                    @if(!empty($search) || !empty($status) || !empty($deptStatus) || !empty($deptFrom) || !empty($deptTo))
                         <a href="{{ route('users.index') }}" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.55rem 0.85rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
                             ✕ Wyczyść
                         </a>
@@ -149,17 +169,23 @@
                                         @endif
                                     </td>
                                     <td style="padding: 1rem; text-align: right; white-space: nowrap;">
-                                        <a href="{{ route('users.edit', $user->id) }}" class="btn-table-action">
-                                            ✎ Edytuj
-                                        </a>
-                                        @if($user->id !== auth()->id())
-                                            <form action="{{ route('users.destroy', $user->id) }}" method="POST" style="display: inline-block; margin-left: 0.5rem;" onsubmit="return confirm('Czy na pewno usunąć użytkownika {{ addslashes($user->name) }}? Operacja jest nieodwracalna.')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" style="background: none; border: 1px solid var(--danger); color: var(--danger); cursor: pointer; font-size: 0.78rem; padding: 0.3rem 0.65rem; border-radius: 5px; transition: background 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='none'">
-                                                    🗑 Usuń
-                                                </button>
-                                            </form>
+                                        @if(auth()->user()->role === 'admin')
+                                            <a href="{{ route('users.edit', $user->id) }}" class="btn-table-action">
+                                                ✎ Edytuj
+                                            </a>
+                                            @if($user->id !== auth()->id())
+                                                <form action="{{ route('users.destroy', $user->id) }}" method="POST" style="display: inline-block; margin-left: 0.5rem;" onsubmit="return confirm('Czy na pewno usunąć użytkownika {{ addslashes($user->name) }}? Operacja jest nieodwracalna.')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" style="background: none; border: 1px solid var(--danger); color: var(--danger); cursor: pointer; font-size: 0.78rem; padding: 0.3rem 0.65rem; border-radius: 5px; transition: background 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='none'">
+                                                        🗑 Usuń
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        @else
+                                            <a href="{{ route('access.index', ['user_id' => $user->id]) }}" class="btn-table-action" style="background: rgba(99,102,241,0.1); color: var(--primary);">
+                                                👁 Podgląd uprawnień
+                                            </a>
                                         @endif
                                     </td>
                                 </tr>

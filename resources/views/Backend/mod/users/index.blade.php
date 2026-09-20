@@ -22,26 +22,44 @@
             <div style="padding: 1rem 1rem 0 1rem;">
                 <!-- Wyszukiwarka i filtry -->
                 <form method="GET" action="{{ route('users.index') }}" id="search-form" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                    <div style="position: relative; flex: 1; max-width: 400px; min-width: 200px;">
+                    <div style="position: relative; flex: 1; max-width: 320px; min-width: 180px;">
                         <input type="text" name="search" id="search-input" value="{{ $search ?? '' }}" 
                                placeholder="Szukaj po nazwie, emailu lub historii..." 
                                class="form-control" style="width: 100%; padding-right: 2rem;">
                         @if(!empty($search))
-                            <a href="{{ route('users.index', array_filter(['status' => $status ?? ''])) }}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); text-decoration: none; font-size: 1.1rem;" title="Wyczyść wyszukiwanie">✕</a>
+                            <a href="{{ route('users.index', array_filter(['status' => $status ?? '', 'dept_status' => $deptStatus ?? '', 'dept_from' => $deptFrom ?? '', 'dept_to' => $deptTo ?? ''])) }}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); text-decoration: none; font-size: 1.1rem;" title="Wyczyść wyszukiwanie">✕</a>
                         @endif
                     </div>
 
-                    {{-- Filtr statusu --}}
-                    <div style="min-width: 170px;">
+                    {{-- Filtr statusu konta --}}
+                    <div style="min-width: 160px;">
                         <select name="status" id="status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
-                            <option value="">Wszystkie statusy</option>
+                            <option value="">Wszystkie statusy konta</option>
                             <option value="active" {{ ($status ?? '') === 'active' || ($status ?? '') === '1' ? 'selected' : '' }}>Tylko aktywni</option>
                             <option value="inactive" {{ ($status ?? '') === 'inactive' || ($status ?? '') === '0' ? 'selected' : '' }}>Tylko nieaktywni</option>
                         </select>
                     </div>
 
-                    <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem; font-size: 0.85rem;">Szukaj</button>
-                    @if(!empty($search) || !empty($status))
+                    {{-- Filtr przynależności do wydziału --}}
+                    <div style="min-width: 190px;">
+                        <select name="dept_status" id="dept-status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
+                            <option value="">Wszystkie okresy wydziału</option>
+                            <option value="active" {{ ($deptStatus ?? '') === 'active' ? 'selected' : '' }}>Tylko aktywny wydział</option>
+                            <option value="expired" {{ ($deptStatus ?? '') === 'expired' ? 'selected' : '' }}>Z wygasłym wydziałem</option>
+                            <option value="none" {{ ($deptStatus ?? '') === 'none' ? 'selected' : '' }}>Bez wydziału</option>
+                        </select>
+                    </div>
+
+                    {{-- Zakres dat wydziału --}}
+                    <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem 0.6rem;">
+                        <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Wydział:</span>
+                        <input type="date" name="dept_from" id="dept_from" value="{{ $deptFrom ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Przynależność do wydziału od" placeholder="Od">
+                        <span style="font-size: 0.78rem; color: var(--text-muted);">-</span>
+                        <input type="date" name="dept_to" id="dept_to" value="{{ $deptTo ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Przynależność do wydziału do" placeholder="Do">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem; font-size: 0.85rem;">Filtruj</button>
+                    @if(!empty($search) || !empty($status) || !empty($deptStatus) || !empty($deptFrom) || !empty($deptTo))
                         <a href="{{ route('users.index') }}" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.55rem 0.85rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
                             ✕ Wyczyść
                         </a>

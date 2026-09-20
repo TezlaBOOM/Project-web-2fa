@@ -17,7 +17,7 @@ class DocumentController extends Controller
     public function index(Request $request)
     {
         $role = auth()->user()->role ?? 'none';
-        if (!in_array($role, ['admin', 'mod', 'user'])) {
+        if (!in_array($role, ['admin', 'mod', 'user', 'view'])) {
             abort(403, 'Brak dostępu.');
         }
 
@@ -159,7 +159,7 @@ class DocumentController extends Controller
     public function download(Document $document)
     {
         $role = auth()->user()->role ?? 'none';
-        if (!in_array($role, ['admin', 'mod', 'user'])) {
+        if (!in_array($role, ['admin', 'mod', 'user', 'view'])) {
             abort(403, 'Brak dostępu.');
         }
 

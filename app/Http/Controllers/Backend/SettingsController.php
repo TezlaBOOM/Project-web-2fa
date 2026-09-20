@@ -14,13 +14,14 @@ class SettingsController extends Controller
     {
         $role = auth()->user()->role ?? 'none';
         
-        $allowedRoles = ['admin', 'mod', 'user', 'none'];
+        $allowedRoles = ['admin', 'mod', 'view', 'user', 'none'];
         if (!in_array($role, $allowedRoles)) {
             $role = 'none';
         }
         $settings = \App\Models\Setting::pluck('value', 'key')->toArray();
         
-        return view("Backend.{$role}.settings.index", compact('settings'));
+        $viewRole = in_array($role, ['admin', 'view']) ? 'admin' : $role;
+        return view("Backend.{$viewRole}.settings.index", compact('settings'));
     }
 
     public function updatePassword(Request $request)

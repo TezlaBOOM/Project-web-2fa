@@ -2,7 +2,7 @@
 @section('title', 'Dostęp (Uprawnienia)')
 
 @section('content')
-    @if(auth()->user()->role === 'admin')
+    @if(auth()->user()->role === 'admin' || auth()->user()->role === 'view')
         @include('Backend.admin._sidebar')
     @else
         @include('Backend.mod._sidebar')
@@ -35,7 +35,7 @@
             @endif
             <div style="display: flex; gap: 0.65rem; margin-bottom: 1.25rem; align-items: center; flex-wrap: wrap;">
                 {{-- Wyszukiwarka --}}
-                <div style="position: relative; flex: 1; min-width: 200px; max-width: 340px;">
+                <div style="position: relative; flex: 1; min-width: 200px; max-width: 280px;">
                     <span style="position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.9rem;">🔍</span>
                     <input type="text" name="search" id="search-input" class="form-control"
                            value="{{ $search }}" placeholder="Szukaj po nazwie lub e-mailu..."
@@ -43,7 +43,7 @@
                 </div>
 
                 {{-- Filtr wydziału --}}
-                <div style="min-width: 190px;">
+                <div style="min-width: 170px;">
                     <select name="dept_id" id="dept-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
                         <option value="">Wszystkie wydziały</option>
                         @foreach($departments as $dept)
@@ -55,7 +55,7 @@
                 </div>
 
                 {{-- Filtr statusu konta --}}
-                <div style="min-width: 175px;">
+                <div style="min-width: 155px;">
                     <select name="user_status" id="user-status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
                         <option value="">Wszyscy użytkownicy</option>
                         <option value="active" {{ ($userStatus === 'active' || $userStatus === '1') ? 'selected' : '' }}>Tylko aktywni</option>
@@ -63,10 +63,30 @@
                     </select>
                 </div>
 
+                {{-- Filtr statusu modułu --}}
+                <div style="min-width: 175px;">
+                    <select name="module_status" id="module-status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
+                        <option value="">Wszystkie moduły</option>
+                        <option value="active" {{ ($moduleStatus === 'active') ? 'selected' : '' }}>Tylko aktywny moduł</option>
+                        <option value="expired" {{ ($moduleStatus === 'expired') ? 'selected' : '' }}>Z wygasłym modułem</option>
+                        <option value="none" {{ ($moduleStatus === 'none') ? 'selected' : '' }}>Bez modułów</option>
+                    </select>
+                </div>
+
+                {{-- Zakres dat modułu --}}
+                <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem 0.6rem;">
+                    <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Moduł:</span>
+                    <input type="date" name="module_from" id="module_from" value="{{ $moduleFrom ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Ważność modułu od" placeholder="Od">
+                    <span style="font-size: 0.78rem; color: var(--text-muted);">-</span>
+                    <input type="date" name="module_to" id="module_to" value="{{ $moduleTo ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Ważność modułu do" placeholder="Do">
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem; font-size: 0.85rem;">Filtruj</button>
+
                 {{-- Wyczyść --}}
-                @if($search || $deptId || $userStatus)
+                @if($search || $deptId || $userStatus || $moduleStatus || $moduleFrom || $moduleTo)
                     <a href="{{ route('access.index', $userId ? ['user_id' => $userId] : []) }}"
-                       style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.5rem 0.85rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
+                       style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.55rem 0.85rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
                         ✕ Wyczyść filtry
                     </a>
                 @endif
@@ -98,7 +118,7 @@
 
                     @forelse($users as $user)
                         @php $isSelected = $selectedUser && $selectedUser->id === $user->id; @endphp
-                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'dept_id' => $deptId, 'user_status' => $userStatus, 'sort_by' => $sortBy, 'sort_dir' => $sortDir, 'access_sort_by' => $accessSortBy, 'access_sort_dir' => $accessSortDir])) }}"
+                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'dept_id' => $deptId, 'user_status' => $userStatus, 'module_status' => $moduleStatus, 'module_from' => $moduleFrom, 'module_to' => $moduleTo, 'sort_by' => $sortBy, 'sort_dir' => $sortDir, 'access_sort_by' => $accessSortBy, 'access_sort_dir' => $accessSortDir])) }}"
                            style="display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.04); text-decoration: none; background: {{ $isSelected ? 'rgba(99,102,241,0.1)' : 'transparent' }}; transition: background 0.12s;"
                            class="user-row {{ $isSelected ? 'selected' : '' }}">
                             <div style="width: 34px; height: 34px; border-radius: 50%; background: {{ $isSelected ? 'var(--primary)' : 'rgba(99,102,241,0.18)' }}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; color: {{ $isSelected ? 'white' : 'var(--primary)' }}; flex-shrink: 0;">
@@ -141,7 +161,7 @@
                         </a>
                     @empty
                         <div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
-                            @if($search || $deptId)
+                            @if($search || $deptId || $userStatus || $moduleStatus || $moduleFrom || $moduleTo)
                                 Brak wyników dla podanych filtrów.
                             @else
                                 Brak użytkowników.
@@ -407,7 +427,13 @@
                     @else
                         <div class="card" style="padding: 2.25rem; text-align: center;">
                             <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">🔒</div>
-                            <div style="color: var(--text-muted); font-size: 0.88rem;">Brak przypisanych uprawnień</div>
+                            <div style="color: var(--text-muted); font-size: 0.88rem;">
+                                @if($moduleStatus || $moduleFrom || $moduleTo)
+                                    Brak uprawnień spełniających kryteria filtra
+                                @else
+                                    Brak przypisanych uprawnień
+                                @endif
+                            </div>
                             @if($role === 'admin')
                                 <a href="{{ route('access.create', ['user_id' => $selectedUser->id]) }}"
                                    style="display: inline-block; margin-top: 0.75rem; color: var(--primary); font-size: 0.82rem; text-decoration: none; background: rgba(99,102,241,0.1); padding: 0.35rem 0.8rem; border-radius: 6px;">

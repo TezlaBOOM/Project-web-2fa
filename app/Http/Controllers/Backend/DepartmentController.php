@@ -12,7 +12,7 @@ class DepartmentController extends Controller
     private function checkAccess()
     {
         $role = auth()->user()->role ?? 'none';
-        if (!in_array($role, ['admin', 'mod'])) {
+        if (!in_array($role, ['admin', 'mod', 'view'])) {
             abort(403, 'Brak dostępu.');
         }
         return $role;

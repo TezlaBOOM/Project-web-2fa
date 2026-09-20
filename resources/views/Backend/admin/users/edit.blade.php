@@ -83,7 +83,7 @@
                             <label for="role" class="form-label">Rola <span style="color: var(--danger);">*</span></label>
                             <select id="role" name="role" class="form-control @error('role') form-control-error @enderror"
                                 @if($user->id === auth()->id()) disabled @endif>
-                                @foreach(['admin' => 'Administrator', 'mod' => 'Moderator', 'user' => 'Użytkownik', 'none' => 'Brak roli'] as $value => $label)
+                                @foreach(['admin' => 'Administrator', 'mod' => 'Moderator', 'view' => 'Podgląd (View)', 'user' => 'Użytkownik', 'none' => 'Brak roli'] as $value => $label)
                                     <option value="{{ $value }}" {{ old('role', $user->role) === $value ? 'selected' : '' }}>
                                         {{ $label }}
                                     </option>

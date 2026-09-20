@@ -13,7 +13,7 @@
             </div>
 
             <div style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.875rem; font-weight: 600;">
-                Zalogowano jako Administrator
+                Zalogowano jako {{ auth()->user()->role === 'admin' ? 'Administrator' : (auth()->user()->role === 'view' ? 'Podgląd (View)' : ucfirst(auth()->user()->role)) }}
             </div>
         </div>
 

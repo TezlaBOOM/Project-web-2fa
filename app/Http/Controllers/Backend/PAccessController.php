@@ -17,7 +17,7 @@ class PAccessController extends Controller
     public function index(Request $request)
     {
         $role = auth()->user()->role ?? 'none';
-        if (!in_array($role, ['admin', 'mod'])) {
+        if (!in_array($role, ['admin', 'mod', 'view'])) {
             abort(403, 'Brak dostępu.');
         }
 
@@ -80,6 +80,43 @@ class PAccessController extends Controller
             $accessSortDir = 'asc';
         }
 
+        $moduleStatus = $request->get('module_status', '');
+        $moduleFrom   = $request->get('module_from');
+        $moduleTo     = $request->get('module_to');
+        $today        = now()->toDateString();
+
+        // Filtrowanie użytkowników na podstawie dat przynależności do modułu
+        if ($moduleStatus === 'active') {
+            $baseQuery->whereHas('pAccesses', function($q) use ($today) {
+                $q->where(function($sq) use ($today) {
+                    $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $today);
+                })->where(function($sq) use ($today) {
+                    $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $today);
+                });
+            });
+        } elseif ($moduleStatus === 'expired') {
+            $baseQuery->whereHas('pAccesses', function($q) use ($today) {
+                $q->whereNotNull('valid_to')->where('valid_to', '<', $today);
+            });
+        } elseif ($moduleStatus === 'none') {
+            $baseQuery->doesntHave('pAccesses');
+        }
+
+        if ($moduleFrom || $moduleTo) {
+            $baseQuery->whereHas('pAccesses', function($q) use ($moduleFrom, $moduleTo) {
+                if ($moduleFrom) {
+                    $q->where(function($sq) use ($moduleFrom) {
+                        $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $moduleFrom);
+                    });
+                }
+                if ($moduleTo) {
+                    $q->where(function($sq) use ($moduleTo) {
+                        $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $moduleTo);
+                    });
+                }
+            });
+        }
+
         $selectedUser    = null;
         $selectedAccesses = null;
         if ($userId) {
@@ -90,6 +127,27 @@ class PAccessController extends Controller
                     ->select('P_access.*')
                     ->join('P_modul', 'P_access.p_modul_id', '=', 'P_modul.id')
                     ->leftJoin('P_operacje', 'P_access.p_operacje_id', '=', 'P_operacje.id');
+
+                if ($moduleStatus === 'active') {
+                    $accessQuery->where(function($sq) use ($today) {
+                        $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $today);
+                    })->where(function($sq) use ($today) {
+                        $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $today);
+                    });
+                } elseif ($moduleStatus === 'expired') {
+                    $accessQuery->whereNotNull('valid_to')->where('valid_to', '<', $today);
+                }
+
+                if ($moduleFrom) {
+                    $accessQuery->where(function($sq) use ($moduleFrom) {
+                        $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $moduleFrom);
+                    });
+                }
+                if ($moduleTo) {
+                    $accessQuery->where(function($sq) use ($moduleTo) {
+                        $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $moduleTo);
+                    });
+                }
 
                 if ($accessSortBy === 'date') {
                     $accessQuery->orderBy('valid_from', $accessSortDir)
@@ -116,7 +174,7 @@ class PAccessController extends Controller
         $users = $baseQuery->orderBy($sortBy, $sortDir)->paginate(20)->withQueryString();
 
         return view('Backend.admin.permissions.access.index', compact(
-            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'sortBy', 'sortDir', 'userStatus', 'accessSortBy', 'accessSortDir'
+            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'sortBy', 'sortDir', 'userStatus', 'accessSortBy', 'accessSortDir', 'moduleStatus', 'moduleFrom', 'moduleTo'
         ));
     }
 

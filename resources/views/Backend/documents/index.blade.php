@@ -3,7 +3,7 @@
 
 @section('content')
     <!-- Sidebar -->
-    @if($role === 'admin')
+    @if($role === 'admin' || $role === 'view')
         @include('Backend.admin._sidebar')
     @elseif($role === 'mod')
         @include('Backend.mod._sidebar')

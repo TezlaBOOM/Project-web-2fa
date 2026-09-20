@@ -16,12 +16,16 @@ class UserController extends Controller
     {
         $role = auth()->user()->role ?? 'none';
         
-        if (!in_array($role, ['admin', 'mod'])) {
+        if (!in_array($role, ['admin', 'mod', 'view'])) {
             abort(403, 'Brak dostępu.');
         }
 
         $search = $request->get('search', '');
         $status = $request->get('status', '');
+        $deptStatus = $request->get('dept_status', '');
+        $deptFrom   = $request->get('dept_from');
+        $deptTo     = $request->get('dept_to');
+        $today      = now()->toDateString();
 
         $query = User::with('departments');
 
@@ -49,6 +53,57 @@ class UserController extends Controller
             $query->where('is_active', false);
         }
 
+        // Filtrowanie na podstawie dat przynależności do wydziału
+        if ($deptStatus === 'active') {
+            $query->whereHas('departments', function($q) use ($today, $role) {
+                if ($role === 'mod') {
+                    $deptIds = auth()->user()->departments->pluck('ID_Departament');
+                    $q->whereIn('Departament.ID_Departament', $deptIds);
+                }
+                $q->where(function($sq) use ($today) {
+                    $sq->whereNull('DepartamentUsers.od')->orWhere('DepartamentUsers.od', '<=', $today);
+                })->where(function($sq) use ($today) {
+                    $sq->whereNull('DepartamentUsers.do')->orWhere('DepartamentUsers.do', '>=', $today);
+                });
+            });
+        } elseif ($deptStatus === 'expired') {
+            $query->whereHas('departments', function($q) use ($today, $role) {
+                if ($role === 'mod') {
+                    $deptIds = auth()->user()->departments->pluck('ID_Departament');
+                    $q->whereIn('Departament.ID_Departament', $deptIds);
+                }
+                $q->whereNotNull('DepartamentUsers.do')->where('DepartamentUsers.do', '<', $today);
+            });
+        } elseif ($deptStatus === 'none') {
+            if ($role === 'mod') {
+                $deptIds = auth()->user()->departments->pluck('ID_Departament');
+                $query->whereDoesntHave('departments', function($q) use ($deptIds) {
+                    $q->whereIn('Departament.ID_Departament', $deptIds);
+                });
+            } else {
+                $query->doesntHave('departments');
+            }
+        }
+
+        if ($deptFrom || $deptTo) {
+            $query->whereHas('departments', function($q) use ($deptFrom, $deptTo, $role) {
+                if ($role === 'mod') {
+                    $deptIds = auth()->user()->departments->pluck('ID_Departament');
+                    $q->whereIn('Departament.ID_Departament', $deptIds);
+                }
+                if ($deptFrom) {
+                    $q->where(function($sq) use ($deptFrom) {
+                        $sq->whereNull('DepartamentUsers.do')->orWhere('DepartamentUsers.do', '>=', $deptFrom);
+                    });
+                }
+                if ($deptTo) {
+                    $q->where(function($sq) use ($deptTo) {
+                        $sq->whereNull('DepartamentUsers.od')->orWhere('DepartamentUsers.od', '<=', $deptTo);
+                    });
+                }
+            });
+        }
+
         $sortBy = $request->get('sort_by', 'name');
         $sortDir = $request->get('sort_dir', 'asc');
 
@@ -61,7 +116,8 @@ class UserController extends Controller
 
         $users = $query->orderBy($sortBy, $sortDir)->get();
         
-        return view("Backend.{$role}.users.index", compact('users', 'search', 'sortBy', 'sortDir', 'status'));
+        $viewRole = in_array($role, ['admin', 'view']) ? 'admin' : $role;
+        return view("Backend.{$viewRole}.users.index", compact('users', 'search', 'sortBy', 'sortDir', 'status', 'deptStatus', 'deptFrom', 'deptTo'));
     }
 
     public function create()
@@ -89,7 +145,7 @@ class UserController extends Controller
             'name'        => 'required|string|max:255',
             'email'       => 'required|email|unique:users,email',
             'password'    => 'required|string|min:8|confirmed',
-            'role'        => 'required|in:admin,mod,user,none',
+            'role'        => 'required|in:admin,mod,view,user,none',
             'departments' => 'nullable|array',
             'departments.*' => 'exists:Departament,ID_Departament',
         ], [
@@ -153,7 +209,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'email'       => 'required|email|unique:users,email,' . $user->id,
-            'role'        => 'required|in:admin,mod,user,none',
+            'role'        => 'required|in:admin,mod,view,user,none',
             'password'    => 'nullable|string|min:8|confirmed',
             'assignments' => 'nullable|array',
             'assignments.*.department_id' => 'required|exists:Departament,ID_Departament',
@@ -299,7 +355,7 @@ class UserController extends Controller
     {
         $role = auth()->user()->role ?? 'none';
 
-        if (!in_array($role, ['admin', 'mod'])) {
+        if (!in_array($role, ['admin', 'mod', 'view'])) {
             abort(403, 'Brak dostępu.');
         }
 

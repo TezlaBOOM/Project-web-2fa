@@ -431,5 +431,117 @@ class UserControllerTest extends TestCase
         $response->assertSee('Moduł Profilowy');
         $response->assertSee('Podgląd');
     }
+
+    public function test_user_index_filters_by_department_membership_status()
+    {
+        $admin = $this->createAdmin();
+        $dept = Departament::create(['Nazwa' => 'Wydział Filtrowania']);
+
+        $userActive = User::factory()->create(['name' => 'Użytkownik Aktywny Dept']);
+        $userActive->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(10)->toDateString(),
+            'do' => now()->addDays(20)->toDateString(),
+        ]);
+
+        $userExpired = User::factory()->create(['name' => 'Użytkownik Wygasły Dept']);
+        $userExpired->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(60)->toDateString(),
+            'do' => now()->subDays(5)->toDateString(),
+        ]);
+
+        $userNone = User::factory()->create(['name' => 'Użytkownik Bez Dept']);
+
+        // 1. Filtr aktywny
+        $response = $this->actingAs($admin)->get(route('users.index', ['dept_status' => 'active']));
+        $response->assertStatus(200);
+        $response->assertSee('Użytkownik Aktywny Dept');
+        $response->assertDontSee('Użytkownik Wygasły Dept');
+        $response->assertDontSee('Użytkownik Bez Dept');
+
+        // 2. Filtr wygasły
+        $response = $this->actingAs($admin)->get(route('users.index', ['dept_status' => 'expired']));
+        $response->assertStatus(200);
+        $response->assertSee('Użytkownik Wygasły Dept');
+        $response->assertDontSee('Użytkownik Aktywny Dept');
+        $response->assertDontSee('Użytkownik Bez Dept');
+
+        // 3. Filtr brak wydziału
+        $response = $this->actingAs($admin)->get(route('users.index', ['dept_status' => 'none']));
+        $response->assertStatus(200);
+        $response->assertSee('Użytkownik Bez Dept');
+        $response->assertDontSee('Użytkownik Aktywny Dept');
+        $response->assertDontSee('Użytkownik Wygasły Dept');
+    }
+
+    public function test_user_index_filters_by_department_membership_dates()
+    {
+        $admin = $this->createAdmin();
+        $dept = Departament::create(['Nazwa' => 'Wydział Terminy']);
+
+        $user2025 = User::factory()->create(['name' => 'Użytkownik 2025']);
+        $user2025->departments()->attach($dept->ID_Departament, [
+            'od' => '2025-01-01',
+            'do' => '2025-12-31',
+        ]);
+
+        $user2026 = User::factory()->create(['name' => 'Użytkownik 2026']);
+        $user2026->departments()->attach($dept->ID_Departament, [
+            'od' => '2026-06-01',
+            'do' => '2026-12-31',
+        ]);
+
+        // Szukanie w przedziale 2026
+        $response = $this->actingAs($admin)->get(route('users.index', [
+            'dept_from' => '2026-01-01',
+            'dept_to'   => '2026-12-31',
+        ]));
+        $response->assertStatus(200);
+        $response->assertSee('Użytkownik 2026');
+        $response->assertDontSee('Użytkownik 2025');
+
+        // Szukanie w przedziale 2025
+        $response = $this->actingAs($admin)->get(route('users.index', [
+            'dept_from' => '2025-01-01',
+            'dept_to'   => '2025-06-30',
+        ]));
+        $response->assertStatus(200);
+        $response->assertSee('Użytkownik 2025');
+        $response->assertDontSee('Użytkownik 2026');
+    }
+
+    public function test_mod_can_filter_users_by_department_membership_status()
+    {
+        $dept = Departament::create(['Nazwa' => 'Wydział Mod Test']);
+        $mod = User::factory()->create(['role' => 'mod', 'is_active' => true]);
+        $mod->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(10)->toDateString(),
+            'do' => null,
+        ]);
+
+        $activeUser = User::factory()->create(['name' => 'Mod User Aktywny']);
+        $activeUser->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(5)->toDateString(),
+            'do' => now()->addDays(30)->toDateString(),
+        ]);
+
+        $expiredUser = User::factory()->create(['name' => 'Mod User Wygasly']);
+        $expiredUser->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(60)->toDateString(),
+            'do' => now()->subDays(10)->toDateString(),
+        ]);
+
+        // Mod filtruje aktywne
+        $response = $this->actingAs($mod)->get(route('users.index', ['dept_status' => 'active']));
+        $response->assertStatus(200);
+        $response->assertSee('Mod User Aktywny');
+        $response->assertDontSee('Mod User Wygasly');
+
+        // Mod filtruje wygasłe
+        $response = $this->actingAs($mod)->get(route('users.index', ['dept_status' => 'expired']));
+        $response->assertStatus(200);
+        $response->assertSee('Mod User Wygasly');
+        $response->assertDontSee('Mod User Aktywny');
+    }
 }
+
 

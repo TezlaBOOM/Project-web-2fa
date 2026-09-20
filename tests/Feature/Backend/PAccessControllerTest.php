@@ -773,5 +773,97 @@ class PAccessControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Wydział Logistyki');
     }
+
+    public function test_access_index_filters_by_module_membership_status()
+    {
+        $admin = $this->createAdmin();
+        $modul = PModul::create(['nazwa' => 'Moduł Bezpieczeństwa']);
+        $op = POperacje::create(['nazwa' => 'Podgląd']);
+
+        $userActive = User::factory()->create(['name' => 'Użytkownik Aktywny Moduł']);
+        PAccess::create([
+            'user_id' => $userActive->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $op->id,
+            'valid_from' => now()->subDays(10)->toDateString(),
+            'valid_to' => now()->addDays(20)->toDateString(),
+        ]);
+
+        $userExpired = User::factory()->create(['name' => 'Użytkownik Wygasły Moduł']);
+        PAccess::create([
+            'user_id' => $userExpired->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $op->id,
+            'valid_from' => now()->subDays(50)->toDateString(),
+            'valid_to' => now()->subDays(5)->toDateString(),
+        ]);
+
+        $userNone = User::factory()->create(['name' => 'Użytkownik Bez Modułu']);
+
+        // 1. Filtr aktywny
+        $response = $this->actingAs($admin)->get(route('access.index', ['module_status' => 'active']));
+        $response->assertStatus(200);
+        $response->assertSee('Użytkownik Aktywny Moduł');
+        $response->assertDontSee('Użytkownik Wygasły Moduł');
+        $response->assertDontSee('Użytkownik Bez Modułu');
+
+        // 2. Filtr wygasły
+        $response = $this->actingAs($admin)->get(route('access.index', ['module_status' => 'expired']));
+        $response->assertStatus(200);
+        $response->assertSee('Użytkownik Wygasły Moduł');
+        $response->assertDontSee('Użytkownik Aktywny Moduł');
+        $response->assertDontSee('Użytkownik Bez Modułu');
+
+        // 3. Filtr brak modułów
+        $response = $this->actingAs($admin)->get(route('access.index', ['module_status' => 'none']));
+        $response->assertStatus(200);
+        $response->assertSee('Użytkownik Bez Modułu');
+        $response->assertDontSee('Użytkownik Aktywny Moduł');
+        $response->assertDontSee('Użytkownik Wygasły Moduł');
+    }
+
+    public function test_access_index_filters_by_module_membership_dates()
+    {
+        $admin = $this->createAdmin();
+        $modul = PModul::create(['nazwa' => 'Moduł Finanse']);
+        $op = POperacje::create(['nazwa' => 'Odczyt']);
+
+        $user2025 = User::factory()->create(['name' => 'Użytkownik Finanse 2025']);
+        PAccess::create([
+            'user_id' => $user2025->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $op->id,
+            'valid_from' => '2025-01-01',
+            'valid_to' => '2025-12-31',
+        ]);
+
+        $user2026 = User::factory()->create(['name' => 'Użytkownik Finanse 2026']);
+        PAccess::create([
+            'user_id' => $user2026->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $op->id,
+            'valid_from' => '2026-06-01',
+            'valid_to' => '2026-12-31',
+        ]);
+
+        // Zakres 2026
+        $response = $this->actingAs($admin)->get(route('access.index', [
+            'module_from' => '2026-01-01',
+            'module_to'   => '2026-12-31',
+        ]));
+        $response->assertStatus(200);
+        $response->assertSee('Użytkownik Finanse 2026');
+        $response->assertDontSee('Użytkownik Finanse 2025');
+
+        // Zakres 2025
+        $response = $this->actingAs($admin)->get(route('access.index', [
+            'module_from' => '2025-01-01',
+            'module_to'   => '2025-06-30',
+        ]));
+        $response->assertStatus(200);
+        $response->assertSee('Użytkownik Finanse 2025');
+        $response->assertDontSee('Użytkownik Finanse 2026');
+    }
 }
+
 

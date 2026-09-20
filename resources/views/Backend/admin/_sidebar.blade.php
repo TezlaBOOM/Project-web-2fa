@@ -1,5 +1,5 @@
 <aside class="sidebar">
-    <div class="logo">Moja Aplikacja</div>
+    <div class="logo">AccessView</div>
 
     <nav>
         {{-- Panel Główny --}}
@@ -48,6 +48,10 @@
                     <span class="nav-group-arrow">▼</span>
                 </div>
                 <div class="nav-submenu">
+                    <a href="{{ route('access.index') }}"
+                       class="nav-submenu-link {{ request()->routeIs('access.*') && !request()->routeIs('access.csv*') ? 'active' : '' }}">
+                        Dostęp
+                    </a>
                     @if(auth()->user()->role === 'admin')
                         <a href="{{ route('modules.index') }}"
                            class="nav-submenu-link {{ request()->routeIs('modules.*') ? 'active' : '' }}">
@@ -58,10 +62,7 @@
                             Operacje
                         </a>
                     @endif
-                    <a href="{{ route('access.index') }}"
-                       class="nav-submenu-link {{ request()->routeIs('access.*') && !request()->routeIs('access.csv*') ? 'active' : '' }}">
-                        Dostęp
-                    </a>
+
                     @if(auth()->user()->role === 'admin')
                         <a href="{{ route('access.csv') }}"
                            class="nav-submenu-link {{ request()->routeIs('access.csv*') ? 'active' : '' }}">

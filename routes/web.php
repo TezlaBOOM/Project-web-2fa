@@ -37,12 +37,14 @@ Route::middleware('auth')->group(function () {
         $user = auth()->user();
         $role = $user->role ?? 'none';
         
-        $allowedRoles = ['admin', 'mod', 'user', 'none'];
+        $allowedRoles = ['admin', 'mod', 'view', 'user', 'none'];
         if (!in_array($role, $allowedRoles)) {
             $role = 'none';
         }
         
         $usersCount = 0;
+        $departmentsCount = 0;
+        $accessesCount = 0;
         $activities = null;
         $accesses = null;
         $search = request('search');
@@ -69,11 +71,15 @@ Route::middleware('auth')->group(function () {
                     $q->whereIn('Departament.ID_Departament', $departmentIds);
                 })->count();
             }
+        } elseif ($role === 'view') {
+            $usersCount = \App\Models\User::count();
+            $departmentsCount = \App\Models\Departament::count();
+            $accessesCount = \App\Models\PAccess::count();
         } elseif ($role === 'user') {
             $accesses = \App\Models\PAccess::with(['modul', 'operacja'])->where('user_id', $user->id)->get();
         }
         
-        return view("Backend.{$role}.dashboard", compact('usersCount', 'activities', 'accesses', 'search'));
+        return view("Backend.{$role}.dashboard", compact('usersCount', 'departmentsCount', 'accessesCount', 'activities', 'accesses', 'search'));
     })->name('dashboard');
 
     Route::get('/profile', [UserController::class, 'profile'])->name('profile');
