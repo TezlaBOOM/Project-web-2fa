@@ -864,6 +864,164 @@ class PAccessControllerTest extends TestCase
         $response->assertSee('Użytkownik Finanse 2025');
         $response->assertDontSee('Użytkownik Finanse 2026');
     }
+
+    public function test_access_index_filters_by_department_membership_status()
+    {
+        $admin = $this->createAdmin();
+        $dept = Departament::create(['Nazwa' => 'Wydział Finansów Dept']);
+
+        $userActive = User::factory()->create(['name' => 'Access Użytkownik Aktywny Dept']);
+        $userActive->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(10)->toDateString(),
+            'do' => now()->addDays(20)->toDateString(),
+        ]);
+
+        $userExpired = User::factory()->create(['name' => 'Access Użytkownik Wygasły Dept']);
+        $userExpired->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(60)->toDateString(),
+            'do' => now()->subDays(5)->toDateString(),
+        ]);
+
+        $userNone = User::factory()->create(['name' => 'Access Użytkownik Bez Dept']);
+
+        // 1. Filtr aktywny wydział
+        $response = $this->actingAs($admin)->get(route('access.index', ['dept_status' => 'active']));
+        $response->assertStatus(200);
+        $response->assertSee('Access Użytkownik Aktywny Dept');
+        $response->assertDontSee('Access Użytkownik Wygasły Dept');
+        $response->assertDontSee('Access Użytkownik Bez Dept');
+
+        // 2. Filtr wygasły wydział
+        $response = $this->actingAs($admin)->get(route('access.index', ['dept_status' => 'expired']));
+        $response->assertStatus(200);
+        $response->assertSee('Access Użytkownik Wygasły Dept');
+        $response->assertDontSee('Access Użytkownik Aktywny Dept');
+        $response->assertDontSee('Access Użytkownik Bez Dept');
+
+        // 3. Filtr brak wydziału
+        $response = $this->actingAs($admin)->get(route('access.index', ['dept_status' => 'none']));
+        $response->assertStatus(200);
+        $response->assertSee('Access Użytkownik Bez Dept');
+        $response->assertDontSee('Access Użytkownik Aktywny Dept');
+        $response->assertDontSee('Access Użytkownik Wygasły Dept');
+    }
+
+    public function test_access_index_filters_by_department_membership_dates()
+    {
+        $admin = $this->createAdmin();
+        $dept = Departament::create(['Nazwa' => 'Wydział Terminy Access']);
+
+        $user2025 = User::factory()->create(['name' => 'Access Użytkownik Dept 2025']);
+        $user2025->departments()->attach($dept->ID_Departament, [
+            'od' => '2025-01-01',
+            'do' => '2025-12-31',
+        ]);
+
+        $user2026 = User::factory()->create(['name' => 'Access Użytkownik Dept 2026']);
+        $user2026->departments()->attach($dept->ID_Departament, [
+            'od' => '2026-06-01',
+            'do' => '2026-12-31',
+        ]);
+
+        // Szukanie w przedziale 2026
+        $response = $this->actingAs($admin)->get(route('access.index', [
+            'dept_from' => '2026-01-01',
+            'dept_to'   => '2026-12-31',
+        ]));
+        $response->assertStatus(200);
+        $response->assertSee('Access Użytkownik Dept 2026');
+        $response->assertDontSee('Access Użytkownik Dept 2025');
+
+        // Szukanie w przedziale 2025
+        $response = $this->actingAs($admin)->get(route('access.index', [
+            'dept_from' => '2025-01-01',
+            'dept_to'   => '2025-06-30',
+        ]));
+        $response->assertStatus(200);
+        $response->assertSee('Access Użytkownik Dept 2025');
+        $response->assertDontSee('Access Użytkownik Dept 2026');
+    }
+
+    public function test_access_index_filters_by_dept_id_combined_with_status_and_dates()
+    {
+        $admin = $this->createAdmin();
+        $deptA = Departament::create(['Nazwa' => 'Wydział A Comb']);
+        $deptB = Departament::create(['Nazwa' => 'Wydział B Comb']);
+
+        $userAExpired = User::factory()->create(['name' => 'User A Expired']);
+        $userAExpired->departments()->attach($deptA->ID_Departament, [
+            'od' => '2020-01-01',
+            'do' => '2020-12-31',
+        ]);
+
+        $userAActive = User::factory()->create(['name' => 'User A Active']);
+        $userAActive->departments()->attach($deptA->ID_Departament, [
+            'od' => '2026-01-01',
+            'do' => '2026-12-31',
+        ]);
+
+        $userBActive = User::factory()->create(['name' => 'User B Active']);
+        $userBActive->departments()->attach($deptB->ID_Departament, [
+            'od' => '2026-01-01',
+            'do' => '2026-12-31',
+        ]);
+
+        // Filtr deptA + expired
+        $response = $this->actingAs($admin)->get(route('access.index', [
+            'dept_id'     => $deptA->ID_Departament,
+            'dept_status' => 'expired',
+        ]));
+        $response->assertStatus(200);
+        $response->assertSee('User A Expired');
+        $response->assertDontSee('User A Active');
+        $response->assertDontSee('User B Active');
+    }
+
+    public function test_mod_can_filter_access_users_by_department_membership_status()
+    {
+        $dept = Departament::create(['Nazwa' => 'Wydział Mod Access']);
+        $mod = User::factory()->create(['role' => 'mod', 'is_active' => true]);
+        $mod->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(10)->toDateString(),
+            'do' => null,
+        ]);
+
+        $userActive = User::factory()->create(['name' => 'Mod Access Aktywny']);
+        $userActive->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(10)->toDateString(),
+            'do' => now()->addDays(20)->toDateString(),
+        ]);
+
+        $userExpired = User::factory()->create(['name' => 'Mod Access Wygasly']);
+        $userExpired->departments()->attach($dept->ID_Departament, [
+            'od' => now()->subDays(60)->toDateString(),
+            'do' => now()->subDays(5)->toDateString(),
+        ]);
+
+        $responseActive = $this->actingAs($mod)->get(route('access.index', ['dept_status' => 'active']));
+        $responseActive->assertStatus(200);
+        $responseActive->assertSee('Mod Access Aktywny');
+        $responseActive->assertDontSee('Mod Access Wygasly');
+
+        $responseExpired = $this->actingAs($mod)->get(route('access.index', ['dept_status' => 'expired']));
+        $responseExpired->assertStatus(200);
+        $responseExpired->assertSee('Mod Access Wygasly');
+        $responseExpired->assertDontSee('Mod Access Aktywny');
+    }
+
+    public function test_access_create_form_renders_department_filter_when_no_user_preselected()
+    {
+        $admin = $this->createAdmin();
+        $dept = Departament::create(['Nazwa' => 'Wydział Wyboru']);
+        $user = User::factory()->create(['name' => 'Użytkownik Do Uprawnienia']);
+        $user->departments()->attach($dept->ID_Departament);
+
+        $response = $this->actingAs($admin)->get(route('access.create'));
+        $response->assertStatus(200);
+        $response->assertSee('Filtruj użytkowników po wydziale');
+        $response->assertSee('Wydział Wyboru');
+        $response->assertSee('Użytkownik Do Uprawnienia');
+    }
 }
 
 

@@ -54,6 +54,24 @@
                     </select>
                 </div>
 
+                {{-- Filtr statusu przynależności do wydziału --}}
+                <div style="min-width: 180px;">
+                    <select name="dept_status" id="dept-status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
+                        <option value="">Wszystkie okresy wydziału</option>
+                        <option value="active" {{ ($deptStatus ?? '') === 'active' ? 'selected' : '' }}>Tylko aktywny wydział</option>
+                        <option value="expired" {{ ($deptStatus ?? '') === 'expired' ? 'selected' : '' }}>Z wygasłym wydziałem</option>
+                        <option value="none" {{ ($deptStatus ?? '') === 'none' ? 'selected' : '' }}>Bez wydziału</option>
+                    </select>
+                </div>
+
+                {{-- Zakres dat wydziału --}}
+                <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem 0.6rem;">
+                    <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Wydział:</span>
+                    <input type="date" name="dept_from" id="dept_from" value="{{ $deptFrom ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Przynależność do wydziału od" placeholder="Od">
+                    <span style="font-size: 0.78rem; color: var(--text-muted);">-</span>
+                    <input type="date" name="dept_to" id="dept_to" value="{{ $deptTo ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Przynależność do wydziału do" placeholder="Do">
+                </div>
+
                 {{-- Filtr statusu konta --}}
                 <div style="min-width: 155px;">
                     <select name="user_status" id="user-status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
@@ -84,7 +102,7 @@
                 <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem; font-size: 0.85rem;">Filtruj</button>
 
                 {{-- Wyczyść --}}
-                @if($search || $deptId || $userStatus || $moduleStatus || $moduleFrom || $moduleTo)
+                @if($search || $deptId || $deptStatus || $deptFrom || $deptTo || $userStatus || $moduleStatus || $moduleFrom || $moduleTo)
                     <a href="{{ route('access.index', $userId ? ['user_id' => $userId] : []) }}"
                        style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.55rem 0.85rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
                         ✕ Wyczyść filtry
@@ -113,12 +131,16 @@
                             @if($deptName)
                                 <span style="font-size: 0.73rem; background: rgba(99,102,241,0.12); color: var(--primary); padding: 0.15rem 0.55rem; border-radius: 999px;">{{ $deptName }}</span>
                             @endif
+                        @elseif($deptStatus)
+                            <span style="font-size: 0.73rem; background: rgba(99,102,241,0.12); color: var(--primary); padding: 0.15rem 0.55rem; border-radius: 999px;">
+                                {{ $deptStatus === 'active' ? 'Aktywny wydział' : ($deptStatus === 'expired' ? 'Wygasły wydział' : 'Bez wydziału') }}
+                            </span>
                         @endif
                     </div>
 
                     @forelse($users as $user)
                         @php $isSelected = $selectedUser && $selectedUser->id === $user->id; @endphp
-                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'dept_id' => $deptId, 'user_status' => $userStatus, 'module_status' => $moduleStatus, 'module_from' => $moduleFrom, 'module_to' => $moduleTo, 'sort_by' => $sortBy, 'sort_dir' => $sortDir, 'access_sort_by' => $accessSortBy, 'access_sort_dir' => $accessSortDir])) }}"
+                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'dept_id' => $deptId, 'dept_status' => $deptStatus, 'dept_from' => $deptFrom, 'dept_to' => $deptTo, 'user_status' => $userStatus, 'module_status' => $moduleStatus, 'module_from' => $moduleFrom, 'module_to' => $moduleTo, 'sort_by' => $sortBy, 'sort_dir' => $sortDir, 'access_sort_by' => $accessSortBy, 'access_sort_dir' => $accessSortDir])) }}"
                            style="display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.04); text-decoration: none; background: {{ $isSelected ? 'rgba(99,102,241,0.1)' : 'transparent' }}; transition: background 0.12s;"
                            class="user-row {{ $isSelected ? 'selected' : '' }}">
                             <div style="width: 34px; height: 34px; border-radius: 50%; background: {{ $isSelected ? 'var(--primary)' : 'rgba(99,102,241,0.18)' }}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; color: {{ $isSelected ? 'white' : 'var(--primary)' }}; flex-shrink: 0;">
@@ -161,7 +183,7 @@
                         </a>
                     @empty
                         <div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
-                            @if($search || $deptId || $userStatus || $moduleStatus || $moduleFrom || $moduleTo)
+                            @if($search || $deptId || $deptStatus || $deptFrom || $deptTo || $userStatus || $moduleStatus || $moduleFrom || $moduleTo)
                                 Brak wyników dla podanych filtrów.
                             @else
                                 Brak użytkowników.

@@ -21,9 +21,12 @@ class PAccessController extends Controller
             abort(403, 'Brak dostępu.');
         }
 
-        $search   = $request->get('search', '');
-        $userId   = $request->get('user_id');
-        $deptId   = $request->get('dept_id');
+        $search     = $request->get('search', '');
+        $userId     = $request->get('user_id');
+        $deptId     = $request->get('dept_id');
+        $deptStatus = $request->get('dept_status', '');
+        $deptFrom   = $request->get('dept_from');
+        $deptTo     = $request->get('dept_to');
 
         $sortBy = $request->get('sort_by', 'name');
         $sortDir = $request->get('sort_dir', 'asc');
@@ -59,16 +62,91 @@ class PAccessController extends Controller
             });
         }
 
-        if ($deptId) {
-            $baseQuery->whereHas('departments', function($q) use ($deptId) {
-                $q->where('Departament.ID_Departament', $deptId)
-                  ->where(function($q2) {
-                      // Uwzględnij tylko aktywnych członków wydziału:
-                      // brak daty końcowej LUB data końcowa >= dzisiaj
-                      $q2->whereNull('DepartamentUsers.do')
-                         ->orWhere('DepartamentUsers.do', '>=', now()->toDateString());
-                  });
+        $today = now()->toDateString();
+
+        // Filtrowanie po wydziale (konkretny wydział i/lub status przynależności do wydziału i zakres dat)
+        if ($deptStatus === 'none') {
+            if ($role === 'mod') {
+                $deptIds = auth()->user()->departments->pluck('ID_Departament');
+                $baseQuery->whereDoesntHave('departments', function($q) use ($deptIds) {
+                    $q->whereIn('Departament.ID_Departament', $deptIds);
+                });
+            } else {
+                $baseQuery->doesntHave('departments');
+            }
+        } elseif ($deptId) {
+            $baseQuery->whereHas('departments', function($q) use ($deptId, $deptStatus, $deptFrom, $deptTo, $today) {
+                $q->where('Departament.ID_Departament', $deptId);
+
+                if ($deptStatus === 'active') {
+                    $q->where(function($sq) use ($today) {
+                        $sq->whereNull('DepartamentUsers.od')->orWhere('DepartamentUsers.od', '<=', $today);
+                    })->where(function($sq) use ($today) {
+                        $sq->whereNull('DepartamentUsers.do')->orWhere('DepartamentUsers.do', '>=', $today);
+                    });
+                } elseif ($deptStatus === 'expired') {
+                    $q->whereNotNull('DepartamentUsers.do')->where('DepartamentUsers.do', '<', $today);
+                } elseif (empty($deptStatus) && !$deptFrom && !$deptTo) {
+                    // Domyślnie dla dept_id bez dodatkowych filtrów (wsteczna kompatybilność):
+                    // uwzględnij tylko aktywnych członków wydziału
+                    $q->where(function($sq) use ($today) {
+                        $sq->whereNull('DepartamentUsers.do')->orWhere('DepartamentUsers.do', '>=', $today);
+                    });
+                }
+
+                if ($deptFrom) {
+                    $q->where(function($sq) use ($deptFrom) {
+                        $sq->whereNull('DepartamentUsers.do')->orWhere('DepartamentUsers.do', '>=', $deptFrom);
+                    });
+                }
+                if ($deptTo) {
+                    $q->where(function($sq) use ($deptTo) {
+                        $sq->whereNull('DepartamentUsers.od')->orWhere('DepartamentUsers.od', '<=', $deptTo);
+                    });
+                }
             });
+        } else {
+            // Brak wybranego konkretnego dept_id
+            if ($deptStatus === 'active') {
+                $baseQuery->whereHas('departments', function($q) use ($today, $role) {
+                    if ($role === 'mod') {
+                        $deptIds = auth()->user()->departments->pluck('ID_Departament');
+                        $q->whereIn('Departament.ID_Departament', $deptIds);
+                    }
+                    $q->where(function($sq) use ($today) {
+                        $sq->whereNull('DepartamentUsers.od')->orWhere('DepartamentUsers.od', '<=', $today);
+                    })->where(function($sq) use ($today) {
+                        $sq->whereNull('DepartamentUsers.do')->orWhere('DepartamentUsers.do', '>=', $today);
+                    });
+                });
+            } elseif ($deptStatus === 'expired') {
+                $baseQuery->whereHas('departments', function($q) use ($today, $role) {
+                    if ($role === 'mod') {
+                        $deptIds = auth()->user()->departments->pluck('ID_Departament');
+                        $q->whereIn('Departament.ID_Departament', $deptIds);
+                    }
+                    $q->whereNotNull('DepartamentUsers.do')->where('DepartamentUsers.do', '<', $today);
+                });
+            }
+
+            if ($deptFrom || $deptTo) {
+                $baseQuery->whereHas('departments', function($q) use ($deptFrom, $deptTo, $role) {
+                    if ($role === 'mod') {
+                        $deptIds = auth()->user()->departments->pluck('ID_Departament');
+                        $q->whereIn('Departament.ID_Departament', $deptIds);
+                    }
+                    if ($deptFrom) {
+                        $q->where(function($sq) use ($deptFrom) {
+                            $sq->whereNull('DepartamentUsers.do')->orWhere('DepartamentUsers.do', '>=', $deptFrom);
+                        });
+                    }
+                    if ($deptTo) {
+                        $q->where(function($sq) use ($deptTo) {
+                            $sq->whereNull('DepartamentUsers.od')->orWhere('DepartamentUsers.od', '<=', $deptTo);
+                        });
+                    }
+                });
+            }
         }
 
         $accessSortBy  = $request->get('access_sort_by', 'module');
@@ -174,7 +252,7 @@ class PAccessController extends Controller
         $users = $baseQuery->orderBy($sortBy, $sortDir)->paginate(20)->withQueryString();
 
         return view('Backend.admin.permissions.access.index', compact(
-            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'sortBy', 'sortDir', 'userStatus', 'accessSortBy', 'accessSortDir', 'moduleStatus', 'moduleFrom', 'moduleTo'
+            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'deptStatus', 'deptFrom', 'deptTo', 'sortBy', 'sortDir', 'userStatus', 'accessSortBy', 'accessSortDir', 'moduleStatus', 'moduleFrom', 'moduleTo'
         ));
     }
 
@@ -184,11 +262,20 @@ class PAccessController extends Controller
         $duplicateAccess = $request->get('duplicate_id') ? PAccess::find($request->get('duplicate_id')) : null;
         $userId = $request->get('user_id') ?? ($duplicateAccess ? $duplicateAccess->user_id : null);
         $preselectedUser = $userId ? User::find($userId) : null;
-        $users = $preselectedUser ? collect() : User::orderBy('name')->get();
+        $deptId = $request->get('dept_id');
+
+        $usersQuery = User::with('departments')->orderBy('name');
+        if ($deptId) {
+            $usersQuery->whereHas('departments', function($q) use ($deptId) {
+                $q->where('Departament.ID_Departament', $deptId);
+            });
+        }
+        $users = $preselectedUser ? collect() : $usersQuery->get();
+        $departments = Departament::orderBy('Nazwa')->get();
         $modules = PModul::whereNull('parent_id')->with('children')->orderBy('nazwa')->get();
         $operations = POperacje::orderBy('nazwa')->get();
 
-        return view('Backend.admin.permissions.access.create', compact('users', 'modules', 'operations', 'preselectedUser', 'duplicateAccess'));
+        return view('Backend.admin.permissions.access.create', compact('users', 'modules', 'operations', 'preselectedUser', 'duplicateAccess', 'departments', 'deptId'));
     }
 
     public function store(Request $request)

@@ -44,11 +44,29 @@
                         </div>
                     @else
                         <div class="form-group">
+                            <label for="create_dept_filter" class="form-label">Filtruj użytkowników po wydziale</label>
+                            <select id="create_dept_filter" class="form-control" onchange="filterUsersByDept(this.value)">
+                                <option value="">Wszystkie wydziały</option>
+                                @if(isset($departments))
+                                    @foreach($departments as $dept)
+                                        <option value="{{ $dept->ID_Departament }}" {{ ($deptId ?? '') == $dept->ID_Departament ? 'selected' : '' }}>
+                                            {{ $dept->Nazwa }}
+                                        </option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+
+                        <div class="form-group">
                             <label for="user_id" class="form-label">Użytkownik <span style="color: var(--danger);">*</span></label>
                             <select name="user_id" id="user_id" class="form-control" required>
                                 <option value="">-- Wybierz użytkownika --</option>
                                 @foreach($users as $u)
-                                    <option value="{{ $u->id }}" {{ old('user_id', $duplicateAccess?->user_id) == $u->id ? 'selected' : '' }}>{{ $u->name }} ({{ $u->email }})</option>
+                                    <option value="{{ $u->id }}" 
+                                            data-dept-ids="{{ $u->departments ? $u->departments->pluck('ID_Departament')->implode(',') : '' }}"
+                                            {{ old('user_id', $duplicateAccess?->user_id) == $u->id ? 'selected' : '' }}>
+                                        {{ $u->name }} ({{ $u->email }})
+                                    </option>
                                 @endforeach
                             </select>
                             @error('user_id') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
@@ -111,4 +129,32 @@
             </div>
         </div>
     </main>
+
+    @push('scripts')
+    <script>
+        function filterUsersByDept(deptId) {
+            const userSelect = document.getElementById('user_id');
+            if (!userSelect) return;
+            const options = userSelect.querySelectorAll('option[data-dept-ids]');
+            options.forEach(opt => {
+                const depts = (opt.getAttribute('data-dept-ids') || '').split(',').filter(Boolean);
+                if (!deptId || depts.includes(deptId.toString())) {
+                    opt.style.display = '';
+                    opt.disabled = false;
+                } else {
+                    opt.style.display = 'none';
+                    opt.disabled = true;
+                    if (opt.selected) {
+                        userSelect.value = '';
+                    }
+                }
+            });
+        }
+        @if(!empty($deptId))
+            document.addEventListener('DOMContentLoaded', function() {
+                filterUsersByDept('{{ $deptId }}');
+            });
+        @endif
+    </script>
+    @endpush
 @endsection
