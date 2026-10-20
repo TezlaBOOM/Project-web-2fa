@@ -575,13 +575,14 @@ class PAccessControllerTest extends TestCase
         $response = $this->actingAs($admin)->get(route('access.index', ['user_id' => $user->id]));
         $response->assertStatus(200);
         $html = $response->getContent();
+        $treeHtml = substr($html, strpos($html, 'Przypisane uprawnienia'));
         
-        $posA = strpos($html, 'Administracja');
-        $posZ = strpos($html, 'Zarzadzanie');
-        $this->assertTrue($posA < $posZ, "Administracja should appear before Zarzadzanie");
+        $posA = strpos($treeHtml, 'Administracja');
+        $posZ = strpos($treeHtml, 'Zarzadzanie');
+        $this->assertTrue($posA < $posZ, "Administracja should appear before Zarzadzanie in permissions tree");
 
-        $posDateEarly = strpos($html, 'od: 2026-01-01');
-        $posDateLate  = strpos($html, 'od: 2026-07-01');
+        $posDateEarly = strpos($treeHtml, 'od: 2026-01-01');
+        $posDateLate  = strpos($treeHtml, 'od: 2026-07-01');
         $this->assertTrue($posDateEarly < $posDateLate, "Earlier date (2026-01-01) should appear before (2026-07-01)");
 
         // 2. Sort by module desc
@@ -592,9 +593,10 @@ class PAccessControllerTest extends TestCase
         ]));
         $responseDesc->assertStatus(200);
         $htmlDesc = $responseDesc->getContent();
-        $posADesc = strpos($htmlDesc, 'Administracja');
-        $posZDesc = strpos($htmlDesc, 'Zarzadzanie');
-        $this->assertTrue($posZDesc < $posADesc, "Zarzadzanie should appear before Administracja when sorted desc");
+        $treeHtmlDesc = substr($htmlDesc, strpos($htmlDesc, 'Przypisane uprawnienia'));
+        $posADesc = strpos($treeHtmlDesc, 'Administracja');
+        $posZDesc = strpos($treeHtmlDesc, 'Zarzadzanie');
+        $this->assertTrue($posZDesc < $posADesc, "Zarzadzanie should appear before Administracja when sorted desc in permissions tree");
     }
 
     public function test_access_permissions_sorting_by_date()
@@ -630,9 +632,10 @@ class PAccessControllerTest extends TestCase
         ]));
         $responseAsc->assertStatus(200);
         $htmlAsc = $responseAsc->getContent();
-        $pos1Asc = strpos($htmlAsc, 'Modul Styczen');
-        $pos2Asc = strpos($htmlAsc, 'Modul Grudzien');
-        $this->assertTrue($pos1Asc < $pos2Asc, "January module should appear before December module when sorted by date asc");
+        $treeHtmlAsc = substr($htmlAsc, strpos($htmlAsc, 'Przypisane uprawnienia'));
+        $pos1Asc = strpos($treeHtmlAsc, 'Modul Styczen');
+        $pos2Asc = strpos($treeHtmlAsc, 'Modul Grudzien');
+        $this->assertTrue($pos1Asc < $pos2Asc, "January module should appear before December module when sorted by date asc in permissions tree");
 
         // Sort by date desc
         $responseDesc = $this->actingAs($admin)->get(route('access.index', [
@@ -642,9 +645,10 @@ class PAccessControllerTest extends TestCase
         ]));
         $responseDesc->assertStatus(200);
         $htmlDesc = $responseDesc->getContent();
-        $pos1Desc = strpos($htmlDesc, 'Modul Styczen');
-        $pos2Desc = strpos($htmlDesc, 'Modul Grudzien');
-        $this->assertTrue($pos2Desc < $pos1Desc, "December module should appear before January module when sorted by date desc");
+        $treeHtmlDesc = substr($htmlDesc, strpos($htmlDesc, 'Przypisane uprawnienia'));
+        $pos1Desc = strpos($treeHtmlDesc, 'Modul Styczen');
+        $pos2Desc = strpos($treeHtmlDesc, 'Modul Grudzien');
+        $this->assertTrue($pos2Desc < $pos1Desc, "December module should appear before January module when sorted by date desc in permissions tree");
     }
 
     public function test_admin_can_access_create_form_with_duplicate_id_and_prefilled_data()
@@ -1073,6 +1077,46 @@ class PAccessControllerTest extends TestCase
         $this->assertTrue($posOlderActive < $posNewExpired, "Aktywny wydział powinien pojawić się przed wygasłym");
         // Nowszy wygasły przed najstarszym wygasłym
         $this->assertTrue($posNewExpired < $posOldExpired, "Młodszy wygasły wydział powinien pojawić się przed najstarszym wygasłym");
+    }
+
+    public function test_access_index_filters_by_specific_modul_id()
+    {
+        $admin = $this->createAdmin();
+
+        $user1 = User::factory()->create(['name' => 'Uzytkownik Modul CRM']);
+        $user2 = User::factory()->create(['name' => 'Uzytkownik Modul ERP']);
+        $user3 = User::factory()->create(['name' => 'Uzytkownik Podmodul CRM Kontakty']);
+
+        $modCrm = PModul::create(['nazwa' => 'Modul CRM Unikalny']);
+        $modCrmChild = PModul::create(['nazwa' => 'Modul Kontakty CRM Unikalny', 'parent_id' => $modCrm->id]);
+        $modErp = PModul::create(['nazwa' => 'Modul ERP Unikalny']);
+
+        $op = POperacje::create(['nazwa' => 'Dostep Podstawowy']);
+
+        PAccess::create(['user_id' => $user1->id, 'p_modul_id' => $modCrm->id, 'p_operacje_id' => $op->id]);
+        PAccess::create(['user_id' => $user3->id, 'p_modul_id' => $modCrmChild->id, 'p_operacje_id' => $op->id]);
+        PAccess::create(['user_id' => $user2->id, 'p_modul_id' => $modErp->id, 'p_operacje_id' => $op->id]);
+
+        // Filter by parent CRM module -> should match CRM directly and child contacts
+        $resCrm = $this->actingAs($admin)->get(route('access.index', ['modul_id' => $modCrm->id]));
+        $resCrm->assertStatus(200);
+        $resCrm->assertSee('Uzytkownik Modul CRM');
+        $resCrm->assertSee('Uzytkownik Podmodul CRM Kontakty');
+        $resCrm->assertDontSee('Uzytkownik Modul ERP');
+
+        // Filter by child module only -> should only match child
+        $resChild = $this->actingAs($admin)->get(route('access.index', ['modul_id' => $modCrmChild->id]));
+        $resChild->assertStatus(200);
+        $resChild->assertDontSee('Uzytkownik Modul CRM');
+        $resChild->assertSee('Uzytkownik Podmodul CRM Kontakty');
+        $resChild->assertDontSee('Uzytkownik Modul ERP');
+
+        // Filter by ERP module
+        $resErp = $this->actingAs($admin)->get(route('access.index', ['modul_id' => $modErp->id]));
+        $resErp->assertStatus(200);
+        $resErp->assertDontSee('Uzytkownik Modul CRM');
+        $resErp->assertDontSee('Uzytkownik Podmodul CRM Kontakty');
+        $resErp->assertSee('Uzytkownik Modul ERP');
     }
 }
 

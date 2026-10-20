@@ -27,6 +27,7 @@ class PAccessController extends Controller
         $deptStatus = $request->get('dept_status', '');
         $deptFrom   = $request->get('dept_from');
         $deptTo     = $request->get('dept_to');
+        $modulId    = $request->get('modul_id');
 
         $sortBy = $request->get('sort_by', 'name');
         $sortDir = $request->get('sort_dir', 'asc');
@@ -163,25 +164,27 @@ class PAccessController extends Controller
         $moduleTo     = $request->get('module_to');
         $today        = now()->toDateString();
 
-        // Filtrowanie użytkowników na podstawie dat przynależności do modułu
-        if ($moduleStatus === 'active') {
-            $baseQuery->whereHas('pAccesses', function($q) use ($today) {
-                $q->where(function($sq) use ($today) {
-                    $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $today);
-                })->where(function($sq) use ($today) {
-                    $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $today);
-                });
-            });
-        } elseif ($moduleStatus === 'expired') {
-            $baseQuery->whereHas('pAccesses', function($q) use ($today) {
-                $q->whereNotNull('valid_to')->where('valid_to', '<', $today);
-            });
-        } elseif ($moduleStatus === 'none') {
-            $baseQuery->doesntHave('pAccesses');
-        }
+        // Filtrowanie po konkretnym module (oraz jego podmodułach)
+        $targetModuleIds = [];
+        if ($modulId) {
+            $selectedModule = PModul::find($modulId);
+            if ($selectedModule) {
+                $targetModuleIds = $selectedModule->getAllDescendantIds();
+            } else {
+                $targetModuleIds = [$modulId];
+            }
 
-        if ($moduleFrom || $moduleTo) {
-            $baseQuery->whereHas('pAccesses', function($q) use ($moduleFrom, $moduleTo) {
+            $baseQuery->whereHas('pAccesses', function($q) use ($targetModuleIds, $today, $moduleStatus, $moduleFrom, $moduleTo) {
+                $q->whereIn('p_modul_id', $targetModuleIds);
+                if ($moduleStatus === 'active') {
+                    $q->where(function($sq) use ($today) {
+                        $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $today);
+                    })->where(function($sq) use ($today) {
+                        $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $today);
+                    });
+                } elseif ($moduleStatus === 'expired') {
+                    $q->whereNotNull('valid_to')->where('valid_to', '<', $today);
+                }
                 if ($moduleFrom) {
                     $q->where(function($sq) use ($moduleFrom) {
                         $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $moduleFrom);
@@ -193,6 +196,40 @@ class PAccessController extends Controller
                     });
                 }
             });
+        }
+
+        // Filtrowanie użytkowników na podstawie ogólnego statusu i dat modułów (gdy modul_id nie został wybrany lub dla statusu 'none')
+        if ($moduleStatus === 'none') {
+            $baseQuery->doesntHave('pAccesses');
+        } elseif (!$modulId) {
+            if ($moduleStatus === 'active') {
+                $baseQuery->whereHas('pAccesses', function($q) use ($today) {
+                    $q->where(function($sq) use ($today) {
+                        $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $today);
+                    })->where(function($sq) use ($today) {
+                        $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $today);
+                    });
+                });
+            } elseif ($moduleStatus === 'expired') {
+                $baseQuery->whereHas('pAccesses', function($q) use ($today) {
+                    $q->whereNotNull('valid_to')->where('valid_to', '<', $today);
+                });
+            }
+
+            if ($moduleFrom || $moduleTo) {
+                $baseQuery->whereHas('pAccesses', function($q) use ($moduleFrom, $moduleTo) {
+                    if ($moduleFrom) {
+                        $q->where(function($sq) use ($moduleFrom) {
+                            $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $moduleFrom);
+                        });
+                    }
+                    if ($moduleTo) {
+                        $q->where(function($sq) use ($moduleTo) {
+                            $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $moduleTo);
+                        });
+                    }
+                });
+            }
         }
 
         $selectedUser    = null;
@@ -227,6 +264,10 @@ class PAccessController extends Controller
                     });
                 }
 
+                if ($modulId) {
+                    $accessQuery->whereIn('P_access.p_modul_id', $targetModuleIds);
+                }
+
                 if ($accessSortBy === 'date') {
                     $accessQuery->orderBy('valid_from', $accessSortDir)
                                 ->orderBy('valid_to', $accessSortDir)
@@ -249,10 +290,12 @@ class PAccessController extends Controller
             $baseQuery->where('is_active', false);
         }
 
+        $modules = PModul::whereNull('parent_id')->with('children.children')->orderBy('nazwa')->get();
+
         $users = $baseQuery->orderBy($sortBy, $sortDir)->paginate(20)->withQueryString();
 
         return view('Backend.admin.permissions.access.index', compact(
-            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'deptStatus', 'deptFrom', 'deptTo', 'sortBy', 'sortDir', 'userStatus', 'accessSortBy', 'accessSortDir', 'moduleStatus', 'moduleFrom', 'moduleTo'
+            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'deptStatus', 'deptFrom', 'deptTo', 'sortBy', 'sortDir', 'userStatus', 'accessSortBy', 'accessSortDir', 'moduleStatus', 'moduleFrom', 'moduleTo', 'modules', 'modulId'
         ));
     }
 

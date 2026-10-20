@@ -19,6 +19,16 @@ class PModul extends Model
         return $this->hasMany(PModul::class, 'parent_id');
     }
 
+    public function getAllDescendantIds()
+    {
+        $ids = [$this->id];
+        $children = $this->children()->get();
+        foreach ($children as $child) {
+            $ids = array_merge($ids, $child->getAllDescendantIds());
+        }
+        return array_unique($ids);
+    }
+
     public function getDepth()
     {
         $depth = 0;

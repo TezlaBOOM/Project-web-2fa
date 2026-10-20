@@ -29,87 +29,130 @@
         @endif
 
         {{-- Filtry --}}
-        <form method="GET" action="{{ route('access.index') }}" id="search-form">
-            @if($userId)
-                <input type="hidden" name="user_id" value="{{ $userId }}">
-            @endif
-            <div style="display: flex; gap: 0.65rem; margin-bottom: 1.25rem; align-items: center; flex-wrap: wrap;">
-                {{-- Wyszukiwarka --}}
-                <div style="position: relative; flex: 1; min-width: 200px; max-width: 280px;">
-                    <span style="position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.9rem;">🔍</span>
-                    <input type="text" name="search" id="search-input" class="form-control"
-                           value="{{ $search }}" placeholder="Szukaj po nazwie lub e-mailu..."
-                           style="padding-left: 2.2rem;" autocomplete="off">
-                </div>
-
-                {{-- Filtr wydziału --}}
-                <div style="min-width: 170px;">
-                    <select name="dept_id" id="dept-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
-                        <option value="">Wszystkie wydziały</option>
-                        @foreach($departments as $dept)
-                            <option value="{{ $dept->ID_Departament }}" {{ $deptId == $dept->ID_Departament ? 'selected' : '' }}>
-                                {{ $dept->Nazwa }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                {{-- Filtr statusu przynależności do wydziału --}}
-                <div style="min-width: 180px;">
-                    <select name="dept_status" id="dept-status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
-                        <option value="">Wszystkie okresy wydziału</option>
-                        <option value="active" {{ ($deptStatus ?? '') === 'active' ? 'selected' : '' }}>Tylko aktywny wydział</option>
-                        <option value="expired" {{ ($deptStatus ?? '') === 'expired' ? 'selected' : '' }}>Z wygasłym wydziałem</option>
-                        <option value="none" {{ ($deptStatus ?? '') === 'none' ? 'selected' : '' }}>Bez wydziału</option>
-                    </select>
-                </div>
-
-                {{-- Zakres dat wydziału --}}
-                <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem 0.6rem;">
-                    <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Wydział:</span>
-                    <input type="date" name="dept_from" id="dept_from" value="{{ $deptFrom ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Przynależność do wydziału od" placeholder="Od">
-                    <span style="font-size: 0.78rem; color: var(--text-muted);">-</span>
-                    <input type="date" name="dept_to" id="dept_to" value="{{ $deptTo ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Przynależność do wydziału do" placeholder="Do">
-                </div>
-
-                {{-- Filtr statusu konta --}}
-                <div style="min-width: 155px;">
-                    <select name="user_status" id="user-status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
-                        <option value="">Wszyscy użytkownicy</option>
-                        <option value="active" {{ ($userStatus === 'active' || $userStatus === '1') ? 'selected' : '' }}>Tylko aktywni</option>
-                        <option value="inactive" {{ ($userStatus === 'inactive' || $userStatus === '0') ? 'selected' : '' }}>Tylko nieaktywni</option>
-                    </select>
-                </div>
-
-                {{-- Filtr statusu modułu --}}
-                <div style="min-width: 175px;">
-                    <select name="module_status" id="module-status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
-                        <option value="">Wszystkie moduły</option>
-                        <option value="active" {{ ($moduleStatus === 'active') ? 'selected' : '' }}>Tylko aktywny moduł</option>
-                        <option value="expired" {{ ($moduleStatus === 'expired') ? 'selected' : '' }}>Z wygasłym modułem</option>
-                        <option value="none" {{ ($moduleStatus === 'none') ? 'selected' : '' }}>Bez modułów</option>
-                    </select>
-                </div>
-
-                {{-- Zakres dat modułu --}}
-                <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem 0.6rem;">
-                    <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Moduł:</span>
-                    <input type="date" name="module_from" id="module_from" value="{{ $moduleFrom ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Ważność modułu od" placeholder="Od">
-                    <span style="font-size: 0.78rem; color: var(--text-muted);">-</span>
-                    <input type="date" name="module_to" id="module_to" value="{{ $moduleTo ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Ważność modułu do" placeholder="Do">
-                </div>
-
-                <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem; font-size: 0.85rem;">Filtruj</button>
-
-                {{-- Wyczyść --}}
-                @if($search || $deptId || $deptStatus || $deptFrom || $deptTo || $userStatus || $moduleStatus || $moduleFrom || $moduleTo)
-                    <a href="{{ route('access.index', $userId ? ['user_id' => $userId] : []) }}"
-                       style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.55rem 0.85rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
-                        ✕ Wyczyść filtry
-                    </a>
+        <div class="card" style="margin-bottom: 1.25rem; padding: 1.1rem 1.25rem;">
+            <form method="GET" action="{{ route('access.index') }}" id="search-form">
+                @if($userId)
+                    <input type="hidden" name="user_id" value="{{ $userId }}">
                 @endif
-            </div>
-        </form>
+                @if($sortBy !== 'name')
+                    <input type="hidden" name="sort_by" value="{{ $sortBy }}">
+                @endif
+                @if($sortDir !== 'asc')
+                    <input type="hidden" name="sort_dir" value="{{ $sortDir }}">
+                @endif
+                @if($accessSortBy !== 'module')
+                    <input type="hidden" name="access_sort_by" value="{{ $accessSortBy }}">
+                @endif
+                @if($accessSortDir !== 'asc')
+                    <input type="hidden" name="access_sort_dir" value="{{ $accessSortDir }}">
+                @endif
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; align-items: start;">
+                    
+                    {{-- Grupa 1: Użytkownik i Szukanie --}}
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem;">
+                        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+                            <span>👤</span> Użytkownik i konto
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <div style="position: relative;">
+                                <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.85rem;">🔍</span>
+                                <input type="text" name="search" id="search-input" class="form-control"
+                                       value="{{ $search }}" placeholder="Szukaj po nazwie lub e-mailu..."
+                                       style="padding-left: 2.1rem; font-size: 0.82rem; height: 38px;" autocomplete="off">
+                            </div>
+                            <div>
+                                <select name="user_status" id="user-status-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                                    <option value="">Wszyscy użytkownicy (status konta)</option>
+                                    <option value="active" {{ ($userStatus === 'active' || $userStatus === '1') ? 'selected' : '' }}>Tylko aktywni</option>
+                                    <option value="inactive" {{ ($userStatus === 'inactive' || $userStatus === '0') ? 'selected' : '' }}>Tylko nieaktywni</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Grupa 2: Filtrowanie po Wydziale --}}
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem;">
+                        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+                            <span>🏢</span> Przynależność do wydziału
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                                <select name="dept_id" id="dept-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                                    <option value="">Wszystkie wydziały</option>
+                                    @foreach($departments as $dept)
+                                        <option value="{{ $dept->ID_Departament }}" {{ $deptId == $dept->ID_Departament ? 'selected' : '' }}>
+                                            {{ $dept->Nazwa }}
+                                        </option>
+                                    @endforeach
+                                </select>
+
+                                <select name="dept_status" id="dept-status-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                                    <option value="">Wszystkie okresy wydziału</option>
+                                    <option value="active" {{ ($deptStatus ?? '') === 'active' ? 'selected' : '' }}>Tylko aktywny wydział</option>
+                                    <option value="expired" {{ ($deptStatus ?? '') === 'expired' ? 'selected' : '' }}>Z wygasłym wydziałem</option>
+                                    <option value="none" {{ ($deptStatus ?? '') === 'none' ? 'selected' : '' }}>Bez wydziału</option>
+                                </select>
+                            </div>
+
+                            <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem 0.6rem;">
+                                <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Wydział:</span>
+                                <input type="date" name="dept_from" id="dept_from" value="{{ $deptFrom ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.4rem; font-size: 0.78rem; height: 30px;" title="Przynależność do wydziału od" placeholder="Od">
+                                <span style="font-size: 0.74rem; color: var(--text-muted);">-</span>
+                                <input type="date" name="dept_to" id="dept_to" value="{{ $deptTo ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.4rem; font-size: 0.78rem; height: 30px;" title="Przynależność do wydziału do" placeholder="Do">
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Grupa 3: Filtrowanie po Module --}}
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem;">
+                        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+                            <span>📦</span> Uprawnienia do modułów
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                                <select name="modul_id" id="modul-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                                    <option value="">Wszystkie moduły (dowolny)</option>
+                                    @foreach($modules as $modItem)
+                                        @include('Backend.admin.permissions.modules._option', ['module' => $modItem, 'depth' => 0, 'selectedId' => $modulId])
+                                    @endforeach
+                                </select>
+
+                                <select name="module_status" id="module-status-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                                    <option value="">Wszystkie statusy</option>
+                                    <option value="active" {{ ($moduleStatus === 'active') ? 'selected' : '' }}>Tylko aktywny moduł</option>
+                                    <option value="expired" {{ ($moduleStatus === 'expired') ? 'selected' : '' }}>Z wygasłym modułem</option>
+                                    <option value="none" {{ ($moduleStatus === 'none') ? 'selected' : '' }}>Bez modułów</option>
+                                </select>
+                            </div>
+
+                            <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem 0.6rem;">
+                                <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Moduł:</span>
+                                <input type="date" name="module_from" id="module_from" value="{{ $moduleFrom ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.4rem; font-size: 0.78rem; height: 30px;" title="Ważność modułu od" placeholder="Od">
+                                <span style="font-size: 0.74rem; color: var(--text-muted);">-</span>
+                                <input type="date" name="module_to" id="module_to" value="{{ $moduleTo ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.4rem; font-size: 0.78rem; height: 30px;" title="Ważność modułu do" placeholder="Do">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                {{-- Przyciski akcji filtra --}}
+                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.65rem; margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05);">
+                    @if($search || $deptId || $deptStatus || $deptFrom || $deptTo || $userStatus || $modulId || $moduleStatus || $moduleFrom || $moduleTo)
+                        <a href="{{ route('access.index', array_filter(['user_id' => $userId, 'sort_by' => $sortBy !== 'name' ? $sortBy : null, 'sort_dir' => $sortDir !== 'asc' ? $sortDir : null])) }}"
+                           style="color: var(--text-muted); text-decoration: none; font-size: 0.82rem; padding: 0.5rem 0.9rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap; transition: all 0.15s;"
+                           onmouseover="this.style.color='#ef4444'; this.style.background='rgba(239,68,68,0.1)'"
+                           onmouseout="this.style.color='var(--text-muted)'; this.style.background='rgba(255,255,255,0.05)'">
+                            ✕ Wyczyść filtry
+                        </a>
+                    @endif
+                    <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1.4rem; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem;">
+                        <span>🔍</span> Filtruj
+                    </button>
+                </div>
+            </form>
+        </div>
 
         <div style="display: grid; grid-template-columns: {{ $selectedUser ? '320px 1fr' : '1fr' }}; gap: 1.25rem; align-items: start;">
 
@@ -126,21 +169,42 @@
                                 Email @if($sortBy === 'email') <span>{{ $sortDir === 'asc' ? '▲' : '▼' }}</span> @else <span style="opacity: 0.4;">⇅</span> @endif
                             </a>
                         </div>
-                        @if($deptId)
-                            @php $deptName = $departments->firstWhere('ID_Departament', $deptId)?->Nazwa; @endphp
-                            @if($deptName)
-                                <span style="font-size: 0.73rem; background: rgba(99,102,241,0.12); color: var(--primary); padding: 0.15rem 0.55rem; border-radius: 999px;">{{ $deptName }}</span>
+                        <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;">
+                            @if($deptId)
+                                @php $deptName = $departments->firstWhere('ID_Departament', $deptId)?->Nazwa; @endphp
+                                @if($deptName)
+                                    <span style="font-size: 0.73rem; background: rgba(99,102,241,0.12); color: var(--primary); padding: 0.15rem 0.55rem; border-radius: 999px;">{{ $deptName }}</span>
+                                @endif
+                            @elseif($deptStatus)
+                                <span style="font-size: 0.73rem; background: rgba(99,102,241,0.12); color: var(--primary); padding: 0.15rem 0.55rem; border-radius: 999px;">
+                                    {{ $deptStatus === 'active' ? 'Aktywny wydział' : ($deptStatus === 'expired' ? 'Wygasły wydział' : 'Bez wydziału') }}
+                                </span>
                             @endif
-                        @elseif($deptStatus)
-                            <span style="font-size: 0.73rem; background: rgba(99,102,241,0.12); color: var(--primary); padding: 0.15rem 0.55rem; border-radius: 999px;">
-                                {{ $deptStatus === 'active' ? 'Aktywny wydział' : ($deptStatus === 'expired' ? 'Wygasły wydział' : 'Bez wydziału') }}
-                            </span>
-                        @endif
+
+                            @if($modulId)
+                                @php
+                                    $allFlattenedModules = function($mods) use (&$allFlattenedModules) {
+                                        $res = collect();
+                                        foreach($mods as $m) {
+                                            $res->push($m);
+                                            if($m->children && $m->children->isNotEmpty()) {
+                                                $res = $res->merge($allFlattenedModules($m->children));
+                                            }
+                                        }
+                                        return $res;
+                                    };
+                                    $modFound = $allFlattenedModules($modules)->firstWhere('id', $modulId);
+                                @endphp
+                                @if($modFound)
+                                    <span style="font-size: 0.73rem; background: rgba(16,185,129,0.12); color: var(--success); padding: 0.15rem 0.55rem; border-radius: 999px;">Moduł: {{ $modFound->nazwa }}</span>
+                                @endif
+                            @endif
+                        </div>
                     </div>
 
                     @forelse($users as $user)
                         @php $isSelected = $selectedUser && $selectedUser->id === $user->id; @endphp
-                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'dept_id' => $deptId, 'dept_status' => $deptStatus, 'dept_from' => $deptFrom, 'dept_to' => $deptTo, 'user_status' => $userStatus, 'module_status' => $moduleStatus, 'module_from' => $moduleFrom, 'module_to' => $moduleTo, 'sort_by' => $sortBy, 'sort_dir' => $sortDir, 'access_sort_by' => $accessSortBy, 'access_sort_dir' => $accessSortDir])) }}"
+                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'dept_id' => $deptId, 'dept_status' => $deptStatus, 'dept_from' => $deptFrom, 'dept_to' => $deptTo, 'user_status' => $userStatus, 'modul_id' => $modulId, 'module_status' => $moduleStatus, 'module_from' => $moduleFrom, 'module_to' => $moduleTo, 'sort_by' => $sortBy, 'sort_dir' => $sortDir, 'access_sort_by' => $accessSortBy, 'access_sort_dir' => $accessSortDir])) }}"
                            style="display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.04); text-decoration: none; background: {{ $isSelected ? 'rgba(99,102,241,0.1)' : 'transparent' }}; transition: background 0.12s;"
                            class="user-row {{ $isSelected ? 'selected' : '' }}">
                             <div style="width: 34px; height: 34px; border-radius: 50%; background: {{ $isSelected ? 'var(--primary)' : 'rgba(99,102,241,0.18)' }}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; color: {{ $isSelected ? 'white' : 'var(--primary)' }}; flex-shrink: 0;">
@@ -183,7 +247,7 @@
                         </a>
                     @empty
                         <div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
-                            @if($search || $deptId || $deptStatus || $deptFrom || $deptTo || $userStatus || $moduleStatus || $moduleFrom || $moduleTo)
+                            @if($search || $deptId || $deptStatus || $deptFrom || $deptTo || $userStatus || $modulId || $moduleStatus || $moduleFrom || $moduleTo)
                                 Brak wyników dla podanych filtrów.
                             @else
                                 Brak użytkowników.
