@@ -137,7 +137,7 @@
                                     <td style="padding: 1rem;">
                                         @if($user->departments->count() > 0)
                                             <div style="display: flex; flex-wrap: wrap; gap: 0.3rem;">
-                                                @foreach($user->departments as $dept)
+                                                @foreach($user->sortedDepartments as $dept)
                                                     @php
                                                         $isExpired = $dept->pivot->do && $dept->pivot->do < date('Y-m-d');
                                                     @endphp

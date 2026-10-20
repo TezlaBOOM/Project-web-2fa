@@ -52,7 +52,7 @@ class PAccess extends Model
             return collect();
         }
 
-        return $user->departments->filter(function ($dept) {
+        return $user->sortedDepartments->filter(function ($dept) {
             $deptOd = $dept->pivot->od ? \Carbon\Carbon::parse($dept->pivot->od)->startOfDay() : null;
             $deptDo = $dept->pivot->do ? \Carbon\Carbon::parse($dept->pivot->do)->endOfDay() : null;
 

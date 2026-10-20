@@ -45,7 +45,7 @@
                         @if($user->departments && $user->departments->isNotEmpty())
                             <div style="display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.5rem; align-items: center;">
                                 <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">Wydziały:</span>
-                                @foreach($user->departments as $dept)
+                                @foreach($user->sortedDepartments as $dept)
                                     @php
                                         $isExpired = $dept->pivot->do && $dept->pivot->do < date('Y-m-d');
                                     @endphp

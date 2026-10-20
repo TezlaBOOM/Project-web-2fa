@@ -1022,6 +1022,58 @@ class PAccessControllerTest extends TestCase
         $response->assertSee('Wydział Wyboru');
         $response->assertSee('Użytkownik Do Uprawnienia');
     }
+
+    public function test_access_index_renders_departments_sorted_freshest_first()
+    {
+        $admin = $this->createAdmin();
+        $user = User::factory()->create(['name' => 'Wielowydziałowy Dostęp']);
+
+        $deptOldExpired = Departament::create(['Nazwa' => 'Dostęp Najstarszy 2020']);
+        $deptNewExpired = Departament::create(['Nazwa' => 'Dostęp Nowszy Wygasły 2023']);
+        $deptOlderActive = Departament::create(['Nazwa' => 'Dostęp Aktywny 2025']);
+        $deptFreshestActive = Departament::create(['Nazwa' => 'Dostęp Najświeższy 2026']);
+
+        // Attach in arbitrary order
+        $user->departments()->attach($deptOldExpired->ID_Departament, [
+            'od' => '2020-01-01',
+            'do' => '2020-12-31',
+        ]);
+        $user->departments()->attach($deptFreshestActive->ID_Departament, [
+            'od' => '2026-06-01',
+            'do' => null,
+        ]);
+        $user->departments()->attach($deptOlderActive->ID_Departament, [
+            'od' => '2025-01-01',
+            'do' => null,
+        ]);
+        $user->departments()->attach($deptNewExpired->ID_Departament, [
+            'od' => '2023-01-01',
+            'do' => '2023-12-31',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('access.index', ['user_id' => $user->id]));
+        $response->assertStatus(200);
+
+        $html = $response->getContent();
+        // Sprawdź kolejność w sekcji użytkownika (pomijając dropdown filtra wydziałów na samej górze)
+        $userCard = substr($html, strpos($html, 'Wielowydziałowy Dostęp'));
+        $posFreshest = strpos($userCard, 'Dostęp Najświeższy 2026');
+        $posOlderActive = strpos($userCard, 'Dostęp Aktywny 2025');
+        $posNewExpired = strpos($userCard, 'Dostęp Nowszy Wygasły 2023');
+        $posOldExpired = strpos($userCard, 'Dostęp Najstarszy 2020');
+
+        $this->assertTrue($posFreshest !== false);
+        $this->assertTrue($posOlderActive !== false);
+        $this->assertTrue($posNewExpired !== false);
+        $this->assertTrue($posOldExpired !== false);
+
+        // Najświeższy aktywny przed starszym aktywnym
+        $this->assertTrue($posFreshest < $posOlderActive, "Najświeższy wydział powinien pojawić się przed starszym aktywnym");
+        // Aktywny przed wygasłym
+        $this->assertTrue($posOlderActive < $posNewExpired, "Aktywny wydział powinien pojawić się przed wygasłym");
+        // Nowszy wygasły przed najstarszym wygasłym
+        $this->assertTrue($posNewExpired < $posOldExpired, "Młodszy wygasły wydział powinien pojawić się przed najstarszym wygasłym");
+    }
 }
 
 

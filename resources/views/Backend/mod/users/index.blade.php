@@ -98,7 +98,7 @@
                                     <div style="font-size: 0.75rem; color: var(--text-muted);">{{ $user->email }}</div>
                                     @if($user->departments && $user->departments->isNotEmpty())
                                         <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem;">
-                                            @foreach($user->departments as $dept)
+                                            @foreach($user->sortedDepartments as $dept)
                                                 @php
                                                     $isExpired = $dept->pivot->do && $dept->pivot->do < date('Y-m-d');
                                                 @endphp

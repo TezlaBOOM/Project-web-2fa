@@ -44,6 +44,71 @@ class User extends Authenticatable
                     ->withTimestamps();
     }
 
+    /**
+     * Zwraca wydziały użytkownika posortowane:
+     * najpierw wydział najświeższy (aktywny / z najnowszą datą),
+     * a następnie pozostałe w kolejności od najmłodszego do najstarszego.
+     */
+    public function sortedDepartments()
+    {
+        $today = date('Y-m-d');
+
+        return $this->departments->sort(function ($a, $b) use ($today) {
+            $isExpiredA = $a->pivot->do && $a->pivot->do < $today;
+            $isExpiredB = $b->pivot->do && $b->pivot->do < $today;
+
+            $isFutureA = $a->pivot->od && $a->pivot->od > $today;
+            $isFutureB = $b->pivot->od && $b->pivot->od > $today;
+
+            // 1. Aktywne (nie wygasłe i nie przyszłe) mają pierwszeństwo
+            $isActiveA = !$isExpiredA && !$isFutureA;
+            $isActiveB = !$isExpiredB && !$isFutureB;
+
+            if ($isActiveA && !$isActiveB) {
+                return -1;
+            }
+            if (!$isActiveA && $isActiveB) {
+                return 1;
+            }
+
+            // 2. Jeśli żaden nie jest aktywny, ale jeden jest w przyszłości, a drugi wygasły
+            if ($isFutureA && $isExpiredB) {
+                return -1;
+            }
+            if ($isExpiredA && $isFutureB) {
+                return 1;
+            }
+
+            // 3. Data rozpoczęcia (od) - najmłodszy / najnowszy pierwszy (DESC)
+            $odA = $a->pivot->od ?? '';
+            $odB = $b->pivot->od ?? '';
+            if ($odA !== $odB) {
+                return strcmp($odB, $odA);
+            }
+
+            // 4. Data zakończenia (do) - najdłużej ważny / najpóźniejszy koniec pierwszy (DESC)
+            $doA = $a->pivot->do ?? '9999-12-31';
+            $doB = $b->pivot->do ?? '9999-12-31';
+            if ($doA !== $doB) {
+                return strcmp($doB, $doA);
+            }
+
+            // 5. Data utworzenia wpisu (nowo przypisany pierwszy -> DESC)
+            $createdA = $a->pivot->created_at ? $a->pivot->created_at->timestamp : 0;
+            $createdB = $b->pivot->created_at ? $b->pivot->created_at->timestamp : 0;
+            if ($createdA !== $createdB) {
+                return $createdB <=> $createdA;
+            }
+
+            return $b->ID_Departament <=> $a->ID_Departament;
+        })->values();
+    }
+
+    public function getSortedDepartmentsAttribute()
+    {
+        return $this->sortedDepartments();
+    }
+
     public function activities()
     {
         return $this->hasMany(UserActivity::class);

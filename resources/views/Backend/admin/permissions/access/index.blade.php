@@ -156,7 +156,7 @@
                                 <div style="font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $user->email }}</div>
                                 @if($user->departments && $user->departments->isNotEmpty())
                                     <div style="display: flex; flex-wrap: wrap; gap: 0.2rem; margin-top: 0.2rem;">
-                                        @foreach($user->departments as $dept)
+                                        @foreach($user->sortedDepartments as $dept)
                                             @php
                                                 $isExpired = $dept->pivot->do && $dept->pivot->do < date('Y-m-d');
                                             @endphp
@@ -231,7 +231,7 @@
                                     @if($selectedUser->departments->isNotEmpty())
                                         <div style="display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; align-items: center;">
                                             <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Wydziały:</span>
-                                            @foreach($selectedUser->departments as $dept)
+                                            @foreach($selectedUser->sortedDepartments as $dept)
                                                 @php
                                                     $isExpired = $dept->pivot->do && $dept->pivot->do < date('Y-m-d');
                                                 @endphp
@@ -532,16 +532,6 @@
     }
 </style>
 <script>
-    const searchInput = document.getElementById('search-input');
-    let debounceTimer;
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(function() {
-                document.getElementById('search-form').submit();
-            }, 400);
-        });
-    }
     // Hover effect
     document.querySelectorAll('.user-row:not(.selected)').forEach(el => {
         el.addEventListener('mouseover', () => el.style.background = 'rgba(255,255,255,0.03)');
