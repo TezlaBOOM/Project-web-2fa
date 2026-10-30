@@ -88,6 +88,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/2fa', [SettingsController::class, 'toggle2fa'])->name('settings.2fa.toggle');
     Route::get('/settings/logon', [SettingsController::class, 'logon'])->name('settings.logon');
     Route::post('/settings/logon', [SettingsController::class, 'updateLogon'])->name('settings.logon.update');
+    Route::get('/settings/database/export', [SettingsController::class, 'exportDatabase'])->name('settings.database.export');
+    Route::post('/settings/database/import', [SettingsController::class, 'importDatabase'])->name('settings.database.import');
     Route::get('/users/csv', [UserController::class, 'csvView'])->name('users.csv');
     Route::get('/users/csv/pattern', [UserController::class, 'csvPattern'])->name('users.csv.pattern');
     Route::get('/users/csv/export', [UserController::class, 'csvExport'])->name('users.csv.export');

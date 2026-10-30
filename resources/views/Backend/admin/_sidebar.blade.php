@@ -89,6 +89,12 @@
                    class="nav-submenu-link {{ request()->routeIs('settings.logon') ? 'active' : '' }}">
                     Logowanie
                 </a>
+                @if(auth()->user()->role === 'admin')
+                    <a href="{{ route('settings') }}#database-backup"
+                       class="nav-submenu-link">
+                        Kopia i import bazy
+                    </a>
+                @endif
             </div>
         </div>
     </nav>
