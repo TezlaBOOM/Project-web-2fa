@@ -138,7 +138,7 @@
                 </div>
 
                 {{-- Przyciski akcji filtra --}}
-                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.65rem; margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.65rem; margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap;">
                     @if($search || $deptId || $deptStatus || $deptFrom || $deptTo || $userStatus || $modulId || $moduleStatus || $moduleFrom || $moduleTo)
                         <a href="{{ route('access.index', array_filter(['user_id' => $userId, 'sort_by' => $sortBy !== 'name' ? $sortBy : null, 'sort_dir' => $sortDir !== 'asc' ? $sortDir : null])) }}"
                            style="color: var(--text-muted); text-decoration: none; font-size: 0.82rem; padding: 0.5rem 0.9rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap; transition: all 0.15s;"
@@ -147,6 +147,15 @@
                             ✕ Wyczyść filtry
                         </a>
                     @endif
+                    <a href="{{ route('access.pdf', request()->query()) }}"
+                       id="download-pdf-btn"
+                       onclick="downloadFilteredPdf(event)"
+                       style="color: #10b981; text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 0.5rem 1.15rem; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); border-radius: 6px; display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; transition: all 0.15s;"
+                       onmouseover="this.style.background='rgba(16,185,129,0.2)'"
+                       onmouseout="this.style.background='rgba(16,185,129,0.12)'"
+                       title="Pobierz raport PDF dla aktualnych filtrów i wyszukanych użytkowników">
+                        <span>📄</span> Pobierz PDF
+                    </a>
                     <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1.4rem; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem;">
                         <span>🔍</span> Filtruj
                     </button>
@@ -601,6 +610,23 @@
         el.addEventListener('mouseover', () => el.style.background = 'rgba(255,255,255,0.03)');
         el.addEventListener('mouseout',  () => el.style.background = 'transparent');
     });
+
+    // Pobierz PDF z aktualnymi filtrami formularza
+    function downloadFilteredPdf(event) {
+        const form = document.getElementById('search-form');
+        if (!form) return;
+        event.preventDefault();
+        const formData = new FormData(form);
+        const params = new URLSearchParams();
+        for (const [key, value] of formData.entries()) {
+            if (value !== null && String(value).trim() !== '') {
+                params.append(key, String(value).trim());
+            }
+        }
+        const queryString = params.toString();
+        const baseUrl = "{{ route('access.pdf') }}";
+        window.location.href = queryString ? `${baseUrl}?${queryString}` : baseUrl;
+    }
 
     // Toggle module-content
     function toggleModuleContent(header) {

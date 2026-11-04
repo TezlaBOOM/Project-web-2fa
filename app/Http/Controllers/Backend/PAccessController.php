@@ -11,10 +11,11 @@ use App\Models\PModul;
 use App\Models\POperacje;
 use App\Models\UserActivity;
 use App\Models\Departament;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PAccessController extends Controller
 {
-    public function index(Request $request)
+    private function buildFilteredUsersQuery(Request $request): array
     {
         $role = auth()->user()->role ?? 'none';
         if (!in_array($role, ['admin', 'mod', 'view'])) {
@@ -162,10 +163,10 @@ class PAccessController extends Controller
         $moduleStatus = $request->get('module_status', '');
         $moduleFrom   = $request->get('module_from');
         $moduleTo     = $request->get('module_to');
-        $today        = now()->toDateString();
 
         // Filtrowanie po konkretnym module (oraz jego podmodułach)
         $targetModuleIds = [];
+        $selectedModule = null;
         if ($modulId) {
             $selectedModule = PModul::find($modulId);
             if ($selectedModule) {
@@ -232,6 +233,26 @@ class PAccessController extends Controller
             }
         }
 
+        $userStatus = $request->get('user_status', $request->get('status', ''));
+        if ($userStatus === 'active' || $userStatus === '1') {
+            $baseQuery->where('is_active', true);
+        } elseif ($userStatus === 'inactive' || $userStatus === '0') {
+            $baseQuery->where('is_active', false);
+        }
+
+        return compact(
+            'baseQuery', 'role', 'search', 'userId', 'departments', 'deptId', 'deptStatus',
+            'deptFrom', 'deptTo', 'sortBy', 'sortDir', 'userStatus', 'accessSortBy',
+            'accessSortDir', 'moduleStatus', 'moduleFrom', 'moduleTo', 'modulId',
+            'targetModuleIds', 'selectedModule', 'today'
+        );
+    }
+
+    public function index(Request $request)
+    {
+        $filterData = $this->buildFilteredUsersQuery($request);
+        extract($filterData);
+
         $selectedUser    = null;
         $selectedAccesses = null;
         if ($userId) {
@@ -283,13 +304,6 @@ class PAccessController extends Controller
             }
         }
 
-        $userStatus = $request->get('user_status', $request->get('status', ''));
-        if ($userStatus === 'active' || $userStatus === '1') {
-            $baseQuery->where('is_active', true);
-        } elseif ($userStatus === 'inactive' || $userStatus === '0') {
-            $baseQuery->where('is_active', false);
-        }
-
         $modules = PModul::whereNull('parent_id')->with('children.children')->orderBy('nazwa')->get();
 
         $users = $baseQuery->orderBy($sortBy, $sortDir)->paginate(20)->withQueryString();
@@ -297,6 +311,103 @@ class PAccessController extends Controller
         return view('Backend.admin.permissions.access.index', compact(
             'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'deptStatus', 'deptFrom', 'deptTo', 'sortBy', 'sortDir', 'userStatus', 'accessSortBy', 'accessSortDir', 'moduleStatus', 'moduleFrom', 'moduleTo', 'modules', 'modulId'
         ));
+    }
+
+    public function pdfExport(Request $request)
+    {
+        $filterData = $this->buildFilteredUsersQuery($request);
+        extract($filterData);
+
+        $users = $baseQuery->orderBy($sortBy, $sortDir)->get();
+
+        // Przefiltruj i posortuj uprawnienia każdego wyszukanego użytkownika zgodnie z filtrami
+        foreach ($users as $user) {
+            if ($moduleStatus === 'none') {
+                $user->filtered_accesses = collect();
+                continue;
+            }
+
+            $filtered = $user->pAccesses->filter(function ($access) use ($modulId, $targetModuleIds, $moduleStatus, $moduleFrom, $moduleTo, $today) {
+                if ($modulId && !in_array($access->p_modul_id, $targetModuleIds)) {
+                    return false;
+                }
+
+                $fromStr = $access->valid_from ? $access->valid_from->format('Y-m-d') : null;
+                $toStr   = $access->valid_to ? $access->valid_to->format('Y-m-d') : null;
+
+                if ($moduleStatus === 'active') {
+                    if ($fromStr && $fromStr > $today) return false;
+                    if ($toStr && $toStr < $today) return false;
+                } elseif ($moduleStatus === 'expired') {
+                    if (!$toStr || $toStr >= $today) return false;
+                }
+
+                if ($moduleFrom && $toStr && $toStr < $moduleFrom) {
+                    return false;
+                }
+                if ($moduleTo && $fromStr && $fromStr > $moduleTo) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            $user->filtered_accesses = $filtered->sort(function ($a, $b) use ($accessSortBy, $accessSortDir) {
+                $dir = $accessSortDir === 'desc' ? -1 : 1;
+                if ($accessSortBy === 'date') {
+                    $fromA = $a->valid_from ? $a->valid_from->format('Y-m-d') : ($accessSortDir === 'desc' ? '0000-00-00' : '9999-99-99');
+                    $fromB = $b->valid_from ? $b->valid_from->format('Y-m-d') : ($accessSortDir === 'desc' ? '0000-00-00' : '9999-99-99');
+                    if ($fromA !== $fromB) {
+                        return $dir * strcmp($fromA, $fromB);
+                    }
+                    $toA = $a->valid_to ? $a->valid_to->format('Y-m-d') : ($accessSortDir === 'desc' ? '0000-00-00' : '9999-99-99');
+                    $toB = $b->valid_to ? $b->valid_to->format('Y-m-d') : ($accessSortDir === 'desc' ? '0000-00-00' : '9999-99-99');
+                    if ($toA !== $toB) {
+                        return $dir * strcmp($toA, $toB);
+                    }
+                }
+                $modA = $a->modul ? $a->modul->full_path : '';
+                $modB = $b->modul ? $b->modul->full_path : '';
+                $cmp = strnatcasecmp($modA, $modB);
+                if ($cmp !== 0) {
+                    return $dir * $cmp;
+                }
+                $fromA = $a->valid_from ? $a->valid_from->format('Y-m-d') : '0000-00-00';
+                $fromB = $b->valid_from ? $b->valid_from->format('Y-m-d') : '0000-00-00';
+                return strcmp($fromA, $fromB);
+            })->values();
+        }
+
+        $deptName = $deptId ? ($departments->firstWhere('ID_Departament', $deptId)?->Nazwa ?? Departament::find($deptId)?->Nazwa ?? 'Wybrany wydział') : null;
+        $moduleName = $selectedModule ? $this->getModuleFullPath($selectedModule) : null;
+
+        $filterSummary = [
+            'search'               => $search ?: 'Wszystkie (brak)',
+            'search_active'        => (bool) $search,
+            'user_status'          => ($userStatus === 'active' || $userStatus === '1') ? 'Tylko aktywni' : (($userStatus === 'inactive' || $userStatus === '0') ? 'Tylko nieaktywni' : 'Wszyscy użytkownicy'),
+            'user_status_active'   => (bool) $userStatus,
+            'dept'                 => $deptName ?: 'Wszystkie wydziały',
+            'dept_active'          => (bool) $deptId,
+            'dept_status'          => $deptStatus === 'active' ? 'Tylko aktywny wydział' : ($deptStatus === 'expired' ? 'Z wygasłym wydziałem' : ($deptStatus === 'none' ? 'Bez wydziału' : 'Wszystkie okresy wydziału')),
+            'dept_status_active'   => (bool) $deptStatus,
+            'dept_dates'           => ($deptFrom || $deptTo) ? ('od: ' . ($deptFrom ?: '∞') . ' do: ' . ($deptTo ?: '∞')) : 'Dowolny okres',
+            'dept_dates_active'    => (bool) ($deptFrom || $deptTo),
+            'module'               => $moduleName ?: 'Wszystkie moduły',
+            'module_active'        => (bool) $modulId,
+            'module_status'        => $moduleStatus === 'active' ? 'Tylko aktywny moduł' : ($moduleStatus === 'expired' ? 'Z wygasłym modułem' : ($moduleStatus === 'none' ? 'Bez modułów' : 'Wszystkie statusy')),
+            'module_status_active' => (bool) $moduleStatus,
+            'module_dates'         => ($moduleFrom || $moduleTo) ? ('od: ' . ($moduleFrom ?: '∞') . ' do: ' . ($moduleTo ?: '∞')) : 'Dowolny okres',
+            'module_dates_active'  => (bool) ($moduleFrom || $moduleTo),
+        ];
+
+        $generatedAt = now()->format('Y-m-d H:i:s');
+        $generatedBy = auth()->user();
+
+        $pdf = Pdf::loadView('Backend.admin.permissions.access.pdf', compact(
+            'users', 'filterSummary', 'generatedAt', 'generatedBy'
+        ))->setPaper('a4', 'landscape');
+
+        return $pdf->download('raport_dostepu_' . now()->format('Y-m-d_H-i') . '.pdf');
     }
 
     public function create(Request $request)

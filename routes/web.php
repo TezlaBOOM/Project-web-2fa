@@ -113,6 +113,7 @@ Route::middleware('auth')->group(function () {
     // Uprawnienia (Permissions)
     Route::resource('/permissions/modules', PModulController::class)->except(['show']);
     Route::resource('/permissions/operations', POperacjeController::class)->except(['show']);
+    Route::get('/permissions/access/pdf', [PAccessController::class, 'pdfExport'])->name('access.pdf');
     Route::get('/permissions/access/csv', [PAccessController::class, 'csvView'])->name('access.csv');
     Route::get('/permissions/access/csv/pattern', [PAccessController::class, 'csvPattern'])->name('access.csv.pattern');
     Route::get('/permissions/access/csv/export', [PAccessController::class, 'csvExport'])->name('access.csv.export');
