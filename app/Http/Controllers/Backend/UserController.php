@@ -377,6 +377,39 @@ class UserController extends Controller
         ]);
     }
 
+    public function show(User $user)
+    {
+        $role = auth()->user()->role ?? 'none';
+
+        if (!in_array($role, ['admin', 'mod', 'support', 'view'])) {
+            abort(403, 'Brak dostępu.');
+        }
+
+        if ($role === 'mod') {
+            $departmentIds = auth()->user()->departments->pluck('ID_Departament');
+            $hasAccess = $user->departments->pluck('ID_Departament')
+                ->intersect($departmentIds)->isNotEmpty();
+
+            if (!$hasAccess) {
+                abort(403, 'Brak dostępu do tego użytkownika.');
+            }
+        } elseif ($role === 'support') {
+            if (!auth()->user()->canSupportManageUser($user)) {
+                abort(403, 'Brak dostępu do tego użytkownika.');
+            }
+        }
+
+        $user->load('departments.tags');
+
+        $historyNameEmail = \App\Models\UserChangeLog::with('editor')
+            ->where('user_id', $user->id)
+            ->whereIn('field_name', ['name', 'email', 'departments'])
+            ->latest()
+            ->get();
+
+        return view('Backend.admin.users.show', compact('user', 'historyNameEmail'));
+    }
+
     public function showPermissions(User $user)
     {
         $role = auth()->user()->role ?? 'none';

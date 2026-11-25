@@ -51,11 +51,11 @@
                     <div style="position: relative; flex: 1; min-width: 240px; max-width: 400px;">
                         <input type="text" name="search" value="{{ $search ?? '' }}"
                                placeholder="Szukaj wydziału po nazwie, opisie lub tagu..."
-                               class="form-control" style="width: 100%;">
+                               class="form-control" style="width: 100%; height: 43px; padding: 0 0.75rem;">
                     </div>
 
                     <div style="min-width: 200px;">
-                        <select name="tag_id" class="form-control" onchange="document.getElementById('dept-filter-form').submit()">
+                        <select name="tag_id" class="form-control" style="height: 43px; padding: 0 0.75rem;" onchange="document.getElementById('dept-filter-form').submit()">
                             <option value="">Wszystkie tagi</option>
                             @foreach($tags ?? [] as $tag)
                                 <option value="{{ $tag->id }}" {{ ($tagId ?? '') == $tag->id ? 'selected' : '' }}>

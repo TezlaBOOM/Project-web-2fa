@@ -133,5 +133,11 @@ class AccessPdfExportTest extends TestCase
         $responseSingle->assertStatus(200);
         $this->assertStringContainsString('application/pdf', $responseSingle->headers->get('content-type'));
         $this->assertStringStartsWith('%PDF-', $responseSingle->getContent());
+
+        // View role should NOT see Pobierz PDF button in the filter bar
+        $indexRes = $this->actingAs($viewer)->get(route('access.index'));
+        $indexRes->assertStatus(200);
+        $indexRes->assertDontSee('download-pdf-btn');
+        $indexRes->assertDontSee('<span>📄</span> Pobierz PDF', false);
     }
 }

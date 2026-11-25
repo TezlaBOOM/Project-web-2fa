@@ -52,10 +52,10 @@
                     <span style="position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.95rem;">🔍</span>
                     <input type="text" name="search" id="search-input" class="form-control"
                            value="{{ $search }}" placeholder="Szukaj użytkownika po imieniu, nazwisku, e-mailu lub historii zmian..."
-                           style="padding-left: 2.5rem; font-size: 0.92rem; height: 44px; width: 100%;" autocomplete="off">
+                           style="padding: 0 1rem 0 2.5rem; font-size: 0.92rem; height: 49px; width: 100%;" autocomplete="off">
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; align-items: start;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; align-items: stretch;">
                     
                     {{-- Grupa 1: Użytkownik i Konto --}}
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem;">
@@ -64,14 +64,14 @@
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                             <div>
-                                <select name="user_status" id="user-status-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                                <select name="user_status" id="user-status-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
                                     <option value="">Wszyscy użytkownicy (status konta)</option>
                                     <option value="active" {{ ($userStatus === 'active' || $userStatus === '1') ? 'selected' : '' }}>Tylko aktywni</option>
                                     <option value="inactive" {{ ($userStatus === 'inactive' || $userStatus === '0') ? 'selected' : '' }}>Tylko nieaktywni</option>
                                 </select>
                             </div>
                             <div>
-                                <select name="user_role" id="user-role-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                                <select name="user_role" id="user-role-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
                                     <option value="">Wszystkie role użytkowników</option>
                                     <option value="admin" {{ ($userRole ?? '') === 'admin' ? 'selected' : '' }}>Administrator</option>
                                     <option value="mod" {{ ($userRole ?? '') === 'mod' ? 'selected' : '' }}>Moderator</option>
@@ -91,7 +91,7 @@
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                                <select name="dept_id" id="dept-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                                <select name="dept_id" id="dept-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
                                     <option value="">Wszystkie wydziały</option>
                                     @foreach($departments as $dept)
                                         <option value="{{ $dept->ID_Departament }}" {{ $deptId == $dept->ID_Departament ? 'selected' : '' }}>
@@ -100,7 +100,7 @@
                                     @endforeach
                                 </select>
 
-                                <select name="dept_tag_id" id="dept-tag-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                                <select name="dept_tag_id" id="dept-tag-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
                                     <option value="">Wszystkie tagi wydziałów</option>
                                     @foreach($tags ?? [] as $tag)
                                         <option value="{{ $tag->id }}" {{ ($deptTagId ?? '') == $tag->id ? 'selected' : '' }}>
@@ -110,7 +110,7 @@
                                 </select>
                             </div>
 
-                            <select name="dept_status" id="dept-status-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                            <select name="dept_status" id="dept-status-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
                                 <option value="">Wszystkie okresy wydziału</option>
                                 <option value="active" {{ ($deptStatus ?? '') === 'active' ? 'selected' : '' }}>Tylko aktywny wydział</option>
                                 <option value="expired" {{ ($deptStatus ?? '') === 'expired' ? 'selected' : '' }}>Z wygasłym wydziałem</option>
@@ -119,9 +119,9 @@
 
                             <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem 0.6rem;">
                                 <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Wydział:</span>
-                                <input type="date" name="dept_from" id="dept_from" value="{{ $deptFrom ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.4rem; font-size: 0.78rem; height: 30px;" title="Przynależność do wydziału od" placeholder="Od">
+                                <input type="date" name="dept_from" id="dept_from" value="{{ $deptFrom ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.45rem; font-size: 0.78rem; height: 35px;" title="Przynależność do wydziału od" placeholder="Od">
                                 <span style="font-size: 0.74rem; color: var(--text-muted);">-</span>
-                                <input type="date" name="dept_to" id="dept_to" value="{{ $deptTo ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.4rem; font-size: 0.78rem; height: 30px;" title="Przynależność do wydziału do" placeholder="Do">
+                                <input type="date" name="dept_to" id="dept_to" value="{{ $deptTo ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.45rem; font-size: 0.78rem; height: 35px;" title="Przynależność do wydziału do" placeholder="Do">
                             </div>
                         </div>
                     </div>
@@ -133,7 +133,7 @@
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                                <select name="modul_id" id="modul-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                                <select name="modul_id" id="modul-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
                                     <option value="">Wszystkie moduły (dowolny)</option>
                                     @if($role === 'support' && isset($supportModules))
                                         @foreach($supportModules as $modItem)
@@ -148,7 +148,7 @@
                                     @endif
                                 </select>
 
-                                <select name="module_status" id="module-status-filter" class="form-control" style="font-size: 0.82rem; height: 38px;">
+                                <select name="module_status" id="module-status-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
                                     <option value="">Wszystkie statusy</option>
                                     <option value="active" {{ ($moduleStatus === 'active') ? 'selected' : '' }}>Tylko aktywny moduł</option>
                                     <option value="expired" {{ ($moduleStatus === 'expired') ? 'selected' : '' }}>Z wygasłym modułem</option>
@@ -158,9 +158,9 @@
 
                             <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem 0.6rem;">
                                 <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Moduł:</span>
-                                <input type="date" name="module_from" id="module_from" value="{{ $moduleFrom ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.4rem; font-size: 0.78rem; height: 30px;" title="Ważność modułu od" placeholder="Od">
+                                <input type="date" name="module_from" id="module_from" value="{{ $moduleFrom ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.45rem; font-size: 0.78rem; height: 35px;" title="Ważność modułu od" placeholder="Od">
                                 <span style="font-size: 0.74rem; color: var(--text-muted);">-</span>
-                                <input type="date" name="module_to" id="module_to" value="{{ $moduleTo ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.4rem; font-size: 0.78rem; height: 30px;" title="Ważność modułu do" placeholder="Do">
+                                <input type="date" name="module_to" id="module_to" value="{{ $moduleTo ?? '' }}" class="form-control" style="width: 100%; padding: 0.25rem 0.45rem; font-size: 0.78rem; height: 35px;" title="Ważność modułu do" placeholder="Do">
                             </div>
                         </div>
                     </div>
@@ -177,15 +177,17 @@
                             ✕ Wyczyść filtry
                         </a>
                     @endif
-                    <a href="{{ route('access.pdf', request()->query()) }}"
-                       id="download-pdf-btn"
-                       onclick="downloadFilteredPdf(event)"
-                       style="color: #10b981; text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 0.5rem 1.15rem; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); border-radius: 6px; display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; transition: all 0.15s;"
-                       onmouseover="this.style.background='rgba(16,185,129,0.2)'"
-                       onmouseout="this.style.background='rgba(16,185,129,0.12)'"
-                       title="Pobierz raport PDF dla aktualnych filtrów i wyszukanych użytkowników">
-                        <span>📄</span> Pobierz PDF
-                    </a>
+                    @if($role !== 'view')
+                        <a href="{{ route('access.pdf', request()->query()) }}"
+                           id="download-pdf-btn"
+                           onclick="downloadFilteredPdf(event)"
+                           style="color: #10b981; text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 0.5rem 1.15rem; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); border-radius: 6px; display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; transition: all 0.15s;"
+                           onmouseover="this.style.background='rgba(16,185,129,0.2)'"
+                           onmouseout="this.style.background='rgba(16,185,129,0.12)'"
+                           title="Pobierz raport PDF dla aktualnych filtrów i wyszukanych użytkowników">
+                            <span>📄</span> Pobierz PDF
+                        </a>
+                    @endif
                     <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1.4rem; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem;">
                         <span>🔍</span> Filtruj
                     </button>

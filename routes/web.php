@@ -118,6 +118,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     Route::get('/users/{user}/permissions', [UserController::class, 'showPermissions'])->name('users.permissions');
+    Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
 
     // Departments (Wydziały)
     Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');

@@ -57,7 +57,40 @@ class ViewRoleTest extends TestCase
         // Przycisk dodawania użytkownika oraz edycji/usunięcia nie powinien być widoczny dla roli view
         $response->assertDontSee('+ Dodaj użytkownika');
         $response->assertDontSee('✎ Edytuj');
-        $response->assertSee('👁 Podgląd uprawnień');
+        $response->assertSee('👁 Podgląd danych');
+        $response->assertSee(route('users.show', $user->id));
+        $response->assertDontSee('👁 Podgląd uprawnień');
+    }
+
+    public function test_view_role_can_view_user_details_page()
+    {
+        $viewer = $this->createViewUser();
+        $dept = Departament::create(['Nazwa' => 'Wydział Danych']);
+        $dept->syncTagsFromString('Kadry');
+
+        $user = User::factory()->create([
+            'name' => 'Janina Podglądowa',
+            'email' => 'janina@test.pl',
+            'role' => 'user',
+            'is_active' => true,
+        ]);
+        $user->departments()->attach($dept->ID_Departament, [
+            'od' => '2026-01-01',
+            'do' => '2026-12-31',
+        ]);
+
+        $response = $this->actingAs($viewer)->get(route('users.show', $user->id));
+        $response->assertStatus(200);
+        $response->assertSee('Podgląd danych użytkownika');
+        $response->assertSee('Janina Podglądowa');
+        $response->assertSee('janina@test.pl');
+        $response->assertSee('Wydział Danych');
+        $response->assertSee('#Kadry');
+        $response->assertSee('2026-01-01');
+        $response->assertSee('2026-12-31');
+
+        // Regular user cannot access users.show
+        $this->actingAs($user)->get(route('users.show', $user->id))->assertStatus(403);
     }
 
     public function test_view_role_cannot_modify_users()
@@ -110,13 +143,14 @@ class ViewRoleTest extends TestCase
             'valid_to' => '2026-12-31',
         ]);
 
-        // Can view access page with user permissions and PDF download buttons
+        // Can view access page with user permissions and single-user PDF, but NOT filter bar Pobierz PDF
         $response = $this->actingAs($viewer)->get(route('access.index', ['user_id' => $user->id]));
         $response->assertStatus(200);
         $response->assertSee('User With Access');
         $response->assertSee('Moduł Magazyn');
         $response->assertSee('Odczyt');
-        $response->assertSee('Pobierz PDF');
+        $response->assertDontSee('download-pdf-btn');
+        $response->assertDontSee('<span>📄</span> Pobierz PDF', false);
         $response->assertSee('PDF użytkownika');
         $response->assertDontSee('+ Dodaj Uprawnienie');
 

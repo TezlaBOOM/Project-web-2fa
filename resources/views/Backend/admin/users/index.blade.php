@@ -54,7 +54,7 @@
                         <span style="position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 1rem;">🔍</span>
                         <input type="text" name="search" id="search-input" value="{{ $search ?? '' }}"
                                placeholder="Szukaj użytkownika po imieniu, nazwisku, adresie e-mail lub historii zmian..."
-                               class="form-control" style="width: 100%; padding-left: 2.5rem; padding-right: 2.5rem; height: 44px; font-size: 0.95rem;">
+                               class="form-control" style="width: 100%; padding: 0 2.5rem 0 2.5rem; height: 49px; font-size: 0.95rem;">
                         @if(!empty($search))
                             <a href="{{ route('users.index', array_filter(['status' => $status ?? '', 'role' => $roleFilter ?? '', 'dept_id' => $deptId ?? '', 'dept_tag_id' => $deptTagId ?? '', 'dept_status' => $deptStatus ?? '', 'dept_from' => $deptFrom ?? '', 'dept_to' => $deptTo ?? '', 'per_page' => ($perPage ?? 20) != 20 ? $perPage : null])) }}"
                                style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); text-decoration: none; font-size: 1.1rem;" title="Wyczyść wyszukiwanie">✕</a>
@@ -65,13 +65,13 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.9rem; align-items: start;">
                         {{-- Grupa 1: Konto i rola --}}
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem;">
-                            <select name="status" id="status-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                            <select name="status" id="status-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;" onchange="document.getElementById('search-form').submit()">
                                 <option value="">Wszystkie statusy konta</option>
                                 <option value="active" {{ ($status ?? '') === 'active' || ($status ?? '') === '1' ? 'selected' : '' }}>Tylko aktywni</option>
                                 <option value="inactive" {{ ($status ?? '') === 'inactive' || ($status ?? '') === '0' ? 'selected' : '' }}>Tylko nieaktywni</option>
                             </select>
 
-                            <select name="role" id="role-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                            <select name="role" id="role-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;" onchange="document.getElementById('search-form').submit()">
                                 <option value="">Wszystkie role</option>
                                 <option value="admin" {{ ($roleFilter ?? '') === 'admin' ? 'selected' : '' }}>Administrator</option>
                                 <option value="mod" {{ ($roleFilter ?? '') === 'mod' ? 'selected' : '' }}>Moderator</option>
@@ -81,7 +81,7 @@
                                 <option value="none" {{ ($roleFilter ?? '') === 'none' ? 'selected' : '' }}>Brak roli</option>
                             </select>
 
-                            <select name="per_page" id="per-page-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                            <select name="per_page" id="per-page-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;" onchange="document.getElementById('search-form').submit()">
                                 @foreach([10, 20, 50, 100] as $limit)
                                     <option value="{{ $limit }}" {{ ($perPage ?? 20) == $limit ? 'selected' : '' }}>{{ $limit }} / strona</option>
                                 @endforeach
@@ -90,7 +90,7 @@
 
                         {{-- Grupa 2: Wydział, tagi i okresy --}}
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem;">
-                            <select name="dept_id" id="dept-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                            <select name="dept_id" id="dept-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;" onchange="document.getElementById('search-form').submit()">
                                 <option value="">Wszystkie wydziały</option>
                                 @foreach($departments ?? [] as $dept)
                                     <option value="{{ $dept->ID_Departament }}" {{ ($deptId ?? '') == $dept->ID_Departament ? 'selected' : '' }}>
@@ -99,7 +99,7 @@
                                 @endforeach
                             </select>
 
-                            <select name="dept_tag_id" id="dept-tag-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                            <select name="dept_tag_id" id="dept-tag-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;" onchange="document.getElementById('search-form').submit()">
                                 <option value="">Wszystkie tagi wydziałów</option>
                                 @foreach($tags ?? [] as $tag)
                                     <option value="{{ $tag->id }}" {{ ($deptTagId ?? '') == $tag->id ? 'selected' : '' }}>
@@ -108,7 +108,7 @@
                                 @endforeach
                             </select>
 
-                            <select name="dept_status" id="dept-status-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                            <select name="dept_status" id="dept-status-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;" onchange="document.getElementById('search-form').submit()">
                                 <option value="">Wszystkie okresy wydziału</option>
                                 <option value="active" {{ ($deptStatus ?? '') === 'active' ? 'selected' : '' }}>Tylko aktywny wydział</option>
                                 <option value="expired" {{ ($deptStatus ?? '') === 'expired' ? 'selected' : '' }}>Z wygasłym wydziałem</option>
@@ -121,9 +121,9 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap;">
                         <div style="display: flex; align-items: center; gap: 0.45rem; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem 0.65rem;">
                             <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Okres wydziału:</span>
-                            <input type="date" name="dept_from" id="dept_from" value="{{ $deptFrom ?? '' }}" class="form-control" style="width: auto; padding: 0.25rem 0.45rem; font-size: 0.8rem; height: 32px;" title="Przynależność do wydziału od" placeholder="Od">
+                            <input type="date" name="dept_from" id="dept_from" value="{{ $deptFrom ?? '' }}" class="form-control" style="width: auto; padding: 0.25rem 0.45rem; font-size: 0.8rem; height: 37px;" title="Przynależność do wydziału od" placeholder="Od">
                             <span style="font-size: 0.78rem; color: var(--text-muted);">-</span>
-                            <input type="date" name="dept_to" id="dept_to" value="{{ $deptTo ?? '' }}" class="form-control" style="width: auto; padding: 0.25rem 0.45rem; font-size: 0.8rem; height: 32px;" title="Przynależność do wydziału do" placeholder="Do">
+                            <input type="date" name="dept_to" id="dept_to" value="{{ $deptTo ?? '' }}" class="form-control" style="width: auto; padding: 0.25rem 0.45rem; font-size: 0.8rem; height: 37px;" title="Przynależność do wydziału do" placeholder="Do">
                         </div>
 
                         <div style="display: flex; gap: 0.6rem; align-items: center; margin-left: auto;">
@@ -238,8 +238,8 @@
                                                 🔑 Zarządzaj uprawnieniami
                                             </a>
                                         @else
-                                            <a href="{{ route('access.index', ['user_id' => $user->id]) }}" class="btn-table-action" style="background: rgba(99,102,241,0.1); color: var(--primary);">
-                                                👁 Podgląd uprawnień
+                                            <a href="{{ route('users.show', $user->id) }}" class="btn-table-action" style="background: rgba(99,102,241,0.1); color: var(--primary);">
+                                                👁 Podgląd danych
                                             </a>
                                         @endif
                                     </td>
