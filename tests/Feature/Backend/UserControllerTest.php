@@ -575,10 +575,11 @@ class UserControllerTest extends TestCase
         $response->assertStatus(200);
 
         $html = $response->getContent();
-        $posFreshest = strpos($html, 'Wydział Najświeższy 2026');
-        $posOlderActive = strpos($html, 'Wydział Aktywny 2025');
-        $posNewExpired = strpos($html, 'Wydział Nowszy Wygasły 2023');
-        $posOldExpired = strpos($html, 'Wydział Najstarszy 2020');
+        $userRow = substr($html, strpos($html, 'Wielowydziałowy Jan'));
+        $posFreshest = strpos($userRow, 'Wydział Najświeższy 2026');
+        $posOlderActive = strpos($userRow, 'Wydział Aktywny 2025');
+        $posNewExpired = strpos($userRow, 'Wydział Nowszy Wygasły 2023');
+        $posOldExpired = strpos($userRow, 'Wydział Najstarszy 2020');
 
         $this->assertTrue($posFreshest !== false);
         $this->assertTrue($posOlderActive !== false);
@@ -591,6 +592,90 @@ class UserControllerTest extends TestCase
         $this->assertTrue($posOlderActive < $posNewExpired, "Aktywny wydział powinien pojawić się przed wygasłym");
         // Nowszy wygasły przed najstarszym wygasłym
         $this->assertTrue($posNewExpired < $posOldExpired, "Młodszy wygasły wydział powinien pojawić się przed najstarszym wygasłym");
+    }
+
+    public function test_users_index_pagination_works_for_admin_and_mod()
+    {
+        $admin = $this->createAdmin();
+        $dept = Departament::create(['Nazwa' => 'Wydział Paginacji']);
+        $mod = User::factory()->create(['name' => 'Aaa Moderator', 'role' => 'mod', 'is_active' => true]);
+        $mod->departments()->attach($dept->ID_Departament);
+
+        for ($i = 1; $i <= 25; $i++) {
+            $u = User::factory()->create([
+                'name' => sprintf('Paginowany User %02d', $i),
+                'email' => sprintf('pag%02d@test.pl', $i),
+                'role' => 'user',
+                'is_active' => true,
+            ]);
+            $u->departments()->attach($dept->ID_Departament);
+        }
+
+        // Default 20 per page for admin
+        $page1 = $this->actingAs($admin)->get(route('users.index', ['role' => 'user', 'sort_by' => 'name', 'sort_dir' => 'asc']));
+        $page1->assertStatus(200);
+        $page1->assertSee('Paginowany User 01');
+        $page1->assertSee('Paginowany User 20');
+        $page1->assertDontSee('Paginowany User 21');
+        $page1->assertSee('Wyświetlono 1–20 z 25 użytkowników');
+
+        $page2 = $this->actingAs($admin)->get(route('users.index', ['role' => 'user', 'sort_by' => 'name', 'sort_dir' => 'asc', 'page' => 2]));
+        $page2->assertStatus(200);
+        $page2->assertSee('Paginowany User 21');
+        $page2->assertSee('Paginowany User 25');
+        $page2->assertDontSee('Paginowany User 01');
+        $page2->assertSee('Wyświetlono 21–25 z 25 użytkowników');
+
+        // Custom per_page=10
+        $custom = $this->actingAs($admin)->get(route('users.index', ['role' => 'user', 'per_page' => 10, 'page' => 3]));
+        $custom->assertStatus(200);
+        $custom->assertSee('Paginowany User 21');
+        $custom->assertSee('Wyświetlono 21–25 z 25 użytkowników');
+
+        // Mod pagination
+        $modPage2 = $this->actingAs($mod)->get(route('users.index', ['role' => 'user', 'per_page' => 10, 'page' => 2]));
+        $modPage2->assertStatus(200);
+        $modPage2->assertSee('Paginowany User 11');
+        $modPage2->assertDontSee('Paginowany User 01');
+    }
+
+    public function test_users_index_expanded_filters_by_role_dept_and_tag()
+    {
+        $admin = $this->createAdmin();
+        $deptIt = Departament::create(['Nazwa' => 'Wydział IT Filter']);
+        $deptIt->syncTagsFromString('Technologia, Centrala');
+
+        $deptHr = Departament::create(['Nazwa' => 'Wydział HR Filter']);
+        $deptHr->syncTagsFromString('Kadry');
+
+        $uItView = User::factory()->create(['name' => 'Jan IT View', 'role' => 'view', 'is_active' => true]);
+        $uItView->departments()->attach($deptIt->ID_Departament);
+
+        $uItUser = User::factory()->create(['name' => 'Anna IT User', 'role' => 'user', 'is_active' => true]);
+        $uItUser->departments()->attach($deptIt->ID_Departament);
+
+        $uHrView = User::factory()->create(['name' => 'Piotr HR View', 'role' => 'view', 'is_active' => true]);
+        $uHrView->departments()->attach($deptHr->ID_Departament);
+
+        $techTag = \App\Models\Tag::where('name', 'Technologia')->first();
+
+        // Filter by role=view and dept_tag_id
+        $response = $this->actingAs($admin)->get(route('users.index', [
+            'role' => 'view',
+            'dept_tag_id' => $techTag->id,
+        ]));
+        $response->assertStatus(200);
+        $response->assertSee('Jan IT View');
+        $response->assertDontSee('Anna IT User');
+        $response->assertDontSee('Piotr HR View');
+
+        // Filter by specific dept_id
+        $responseDept = $this->actingAs($admin)->get(route('users.index', [
+            'dept_id' => $deptHr->ID_Departament,
+        ]));
+        $responseDept->assertStatus(200);
+        $responseDept->assertSee('Piotr HR View');
+        $responseDept->assertDontSee('Jan IT View');
     }
 }
 

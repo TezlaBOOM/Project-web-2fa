@@ -41,9 +41,17 @@
                         <label for="p_modul_id" class="form-label">Moduł <span style="color: var(--danger);">*</span></label>
                         <select name="p_modul_id" id="p_modul_id" class="form-control" required>
                             <option value="">-- Wybierz moduł --</option>
-                            @foreach($modules as $module)
-                                @include('Backend.admin.permissions.modules._option', ['module' => $module, 'depth' => 0, 'selectedId' => old('p_modul_id', $access->p_modul_id)])
-                            @endforeach
+                            @if(($role ?? 'admin') === 'support' && isset($supportModules))
+                                @foreach($supportModules as $module)
+                                    <option value="{{ $module->id }}" {{ old('p_modul_id', $access->p_modul_id) == $module->id ? 'selected' : '' }}>
+                                        {{ $module->full_path }}
+                                    </option>
+                                @endforeach
+                            @else
+                                @foreach($modules as $module)
+                                    @include('Backend.admin.permissions.modules._option', ['module' => $module, 'depth' => 0, 'selectedId' => old('p_modul_id', $access->p_modul_id)])
+                                @endforeach
+                            @endif
                         </select>
                         @error('p_modul_id') <p style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ $message }}</p> @enderror
                     </div>
@@ -100,4 +108,42 @@
             </div>
         </div>
     </main>
+
+    @if(($role ?? 'admin') === 'support' && isset($allowedPairsMap))
+        @push('scripts')
+        <script>
+            const allowedPairsMap = @json($allowedPairsMap);
+            function filterSupportOperations() {
+                const modSelect = document.getElementById('p_modul_id');
+                const opSelect = document.getElementById('p_operacje_id');
+                if (!modSelect || !opSelect) return;
+
+                const modId = modSelect.value;
+                const allowedOps = modId && allowedPairsMap[modId] ? allowedPairsMap[modId].map(String) : null;
+
+                Array.from(opSelect.options).forEach(opt => {
+                    if (!opt.value) return;
+                    if (!allowedOps || allowedOps.includes(String(opt.value))) {
+                        opt.style.display = '';
+                        opt.disabled = false;
+                    } else {
+                        opt.style.display = 'none';
+                        opt.disabled = true;
+                        if (opt.selected) {
+                            opSelect.value = '';
+                        }
+                    }
+                });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                const modSelect = document.getElementById('p_modul_id');
+                if (modSelect) {
+                    modSelect.addEventListener('change', filterSupportOperations);
+                    filterSupportOperations();
+                }
+            });
+        </script>
+        @endpush
+    @endif
 @endsection

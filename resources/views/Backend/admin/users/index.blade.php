@@ -14,7 +14,7 @@
             </div>
             
             <div style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.875rem; font-weight: 600;">
-                Zalogowano jako {{ auth()->user()->role === 'admin' ? 'Administrator' : (auth()->user()->role === 'view' ? 'Podgląd (View)' : ucfirst(auth()->user()->role)) }}
+                Zalogowano jako {{ auth()->user()->role === 'admin' ? 'Administrator' : (auth()->user()->role === 'view' ? 'Podgląd (View)' : (auth()->user()->role === 'support' ? 'Wsparcie (Support)' : ucfirst(auth()->user()->role))) }}
             </div>
         </div>
 
@@ -32,7 +32,7 @@
 
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Lista użytkowników</span>
+                <span>Lista użytkowników ({{ $users->total() }})</span>
                 @if(auth()->user()->role === 'admin')
                     <a href="{{ route('users.create') }}" class="btn-add-user">
                         <span style="font-size: 1.1rem; line-height: 1;">＋</span> Dodaj użytkownika
@@ -40,50 +40,101 @@
                 @endif
             </div>
             <div class="card-body" style="padding: 1.5rem;">
-                <!-- Wyszukiwarka i filtry -->
-                <form method="GET" action="{{ route('users.index') }}" id="search-form" style="margin-bottom: 1.25rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                    <div style="position: relative; flex: 1; max-width: 320px; min-width: 180px;">
-                        <input type="text" name="search" id="search-input" value="{{ $search ?? '' }}" 
-                               placeholder="Szukaj po nazwie, emailu lub historii..." 
-                               class="form-control" style="width: 100%; padding-right: 2rem;">
+                <!-- Rozbudowana wyszukiwarka i filtry -->
+                <form method="GET" action="{{ route('users.index') }}" id="search-form" style="margin-bottom: 1.5rem; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.15rem;">
+                    @if($sortBy !== 'name')
+                        <input type="hidden" name="sort_by" value="{{ $sortBy }}">
+                    @endif
+                    @if($sortDir !== 'asc')
+                        <input type="hidden" name="sort_dir" value="{{ $sortDir }}">
+                    @endif
+
+                    {{-- Duży pasek wyszukiwania --}}
+                    <div style="position: relative; margin-bottom: 0.9rem;">
+                        <span style="position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 1rem;">🔍</span>
+                        <input type="text" name="search" id="search-input" value="{{ $search ?? '' }}"
+                               placeholder="Szukaj użytkownika po imieniu, nazwisku, adresie e-mail lub historii zmian..."
+                               class="form-control" style="width: 100%; padding-left: 2.5rem; padding-right: 2.5rem; height: 44px; font-size: 0.95rem;">
                         @if(!empty($search))
-                            <a href="{{ route('users.index', array_filter(['status' => $status ?? '', 'dept_status' => $deptStatus ?? '', 'dept_from' => $deptFrom ?? '', 'dept_to' => $deptTo ?? ''])) }}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); text-decoration: none; font-size: 1.1rem;" title="Wyczyść wyszukiwanie">✕</a>
+                            <a href="{{ route('users.index', array_filter(['status' => $status ?? '', 'role' => $roleFilter ?? '', 'dept_id' => $deptId ?? '', 'dept_tag_id' => $deptTagId ?? '', 'dept_status' => $deptStatus ?? '', 'dept_from' => $deptFrom ?? '', 'dept_to' => $deptTo ?? '', 'per_page' => ($perPage ?? 20) != 20 ? $perPage : null])) }}"
+                               style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); text-decoration: none; font-size: 1.1rem;" title="Wyczyść wyszukiwanie">✕</a>
                         @endif
                     </div>
 
-                    {{-- Filtr statusu konta --}}
-                    <div style="min-width: 160px;">
-                        <select name="status" id="status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
-                            <option value="">Wszystkie statusy konta</option>
-                            <option value="active" {{ ($status ?? '') === 'active' || ($status ?? '') === '1' ? 'selected' : '' }}>Tylko aktywni</option>
-                            <option value="inactive" {{ ($status ?? '') === 'inactive' || ($status ?? '') === '0' ? 'selected' : '' }}>Tylko nieaktywni</option>
-                        </select>
+                    {{-- Siatka filtrów: Konto + Wydziały i tagi --}}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.9rem; align-items: start;">
+                        {{-- Grupa 1: Konto i rola --}}
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem;">
+                            <select name="status" id="status-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                                <option value="">Wszystkie statusy konta</option>
+                                <option value="active" {{ ($status ?? '') === 'active' || ($status ?? '') === '1' ? 'selected' : '' }}>Tylko aktywni</option>
+                                <option value="inactive" {{ ($status ?? '') === 'inactive' || ($status ?? '') === '0' ? 'selected' : '' }}>Tylko nieaktywni</option>
+                            </select>
+
+                            <select name="role" id="role-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                                <option value="">Wszystkie role</option>
+                                <option value="admin" {{ ($roleFilter ?? '') === 'admin' ? 'selected' : '' }}>Administrator</option>
+                                <option value="mod" {{ ($roleFilter ?? '') === 'mod' ? 'selected' : '' }}>Moderator</option>
+                                <option value="support" {{ ($roleFilter ?? '') === 'support' ? 'selected' : '' }}>Wsparcie (Support)</option>
+                                <option value="view" {{ ($roleFilter ?? '') === 'view' ? 'selected' : '' }}>Podgląd (View)</option>
+                                <option value="user" {{ ($roleFilter ?? '') === 'user' ? 'selected' : '' }}>Użytkownik</option>
+                                <option value="none" {{ ($roleFilter ?? '') === 'none' ? 'selected' : '' }}>Brak roli</option>
+                            </select>
+
+                            <select name="per_page" id="per-page-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                                @foreach([10, 20, 50, 100] as $limit)
+                                    <option value="{{ $limit }}" {{ ($perPage ?? 20) == $limit ? 'selected' : '' }}>{{ $limit }} / strona</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        {{-- Grupa 2: Wydział, tagi i okresy --}}
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem;">
+                            <select name="dept_id" id="dept-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                                <option value="">Wszystkie wydziały</option>
+                                @foreach($departments ?? [] as $dept)
+                                    <option value="{{ $dept->ID_Departament }}" {{ ($deptId ?? '') == $dept->ID_Departament ? 'selected' : '' }}>
+                                        {{ $dept->Nazwa }}
+                                    </option>
+                                @endforeach
+                            </select>
+
+                            <select name="dept_tag_id" id="dept-tag-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                                <option value="">Wszystkie tagi wydziałów</option>
+                                @foreach($tags ?? [] as $tag)
+                                    <option value="{{ $tag->id }}" {{ ($deptTagId ?? '') == $tag->id ? 'selected' : '' }}>
+                                        #{{ $tag->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+
+                            <select name="dept_status" id="dept-status-filter" class="form-control" style="font-size: 0.84rem; height: 38px;" onchange="document.getElementById('search-form').submit()">
+                                <option value="">Wszystkie okresy wydziału</option>
+                                <option value="active" {{ ($deptStatus ?? '') === 'active' ? 'selected' : '' }}>Tylko aktywny wydział</option>
+                                <option value="expired" {{ ($deptStatus ?? '') === 'expired' ? 'selected' : '' }}>Z wygasłym wydziałem</option>
+                                <option value="none" {{ ($deptStatus ?? '') === 'none' ? 'selected' : '' }}>Bez wydziału</option>
+                            </select>
+                        </div>
                     </div>
 
-                    {{-- Filtr przynależności do wydziału --}}
-                    <div style="min-width: 190px;">
-                        <select name="dept_status" id="dept-status-filter" class="form-control" onchange="document.getElementById('search-form').submit()">
-                            <option value="">Wszystkie okresy wydziału</option>
-                            <option value="active" {{ ($deptStatus ?? '') === 'active' ? 'selected' : '' }}>Tylko aktywny wydział</option>
-                            <option value="expired" {{ ($deptStatus ?? '') === 'expired' ? 'selected' : '' }}>Z wygasłym wydziałem</option>
-                            <option value="none" {{ ($deptStatus ?? '') === 'none' ? 'selected' : '' }}>Bez wydziału</option>
-                        </select>
-                    </div>
+                    {{-- Dolny wiersz: Daty wydziału + przyciski akcji --}}
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 0.45rem; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem 0.65rem;">
+                            <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Okres wydziału:</span>
+                            <input type="date" name="dept_from" id="dept_from" value="{{ $deptFrom ?? '' }}" class="form-control" style="width: auto; padding: 0.25rem 0.45rem; font-size: 0.8rem; height: 32px;" title="Przynależność do wydziału od" placeholder="Od">
+                            <span style="font-size: 0.78rem; color: var(--text-muted);">-</span>
+                            <input type="date" name="dept_to" id="dept_to" value="{{ $deptTo ?? '' }}" class="form-control" style="width: auto; padding: 0.25rem 0.45rem; font-size: 0.8rem; height: 32px;" title="Przynależność do wydziału do" placeholder="Do">
+                        </div>
 
-                    {{-- Zakres dat wydziału --}}
-                    <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem 0.6rem;">
-                        <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Wydział:</span>
-                        <input type="date" name="dept_from" id="dept_from" value="{{ $deptFrom ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Przynależność do wydziału od" placeholder="Od">
-                        <span style="font-size: 0.78rem; color: var(--text-muted);">-</span>
-                        <input type="date" name="dept_to" id="dept_to" value="{{ $deptTo ?? '' }}" class="form-control" style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.8rem;" title="Przynależność do wydziału do" placeholder="Do">
+                        <div style="display: flex; gap: 0.6rem; align-items: center; margin-left: auto;">
+                            @if(!empty($search) || !empty($status) || !empty($roleFilter) || !empty($deptId) || !empty($deptTagId) || !empty($deptStatus) || !empty($deptFrom) || !empty($deptTo))
+                                <a href="{{ route('users.index') }}" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.5rem 0.9rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
+                                    ✕ Wyczyść filtry
+                                </a>
+                            @endif
+                            <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1.35rem; font-size: 0.85rem; font-weight: 600;">🔍 Filtruj</button>
+                        </div>
                     </div>
-
-                    <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem; font-size: 0.85rem;">Filtruj</button>
-                    @if(!empty($search) || !empty($status) || !empty($deptStatus) || !empty($deptFrom) || !empty($deptTo))
-                        <a href="{{ route('users.index') }}" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.55rem 0.85rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
-                            ✕ Wyczyść
-                        </a>
-                    @endif
                 </form>
 
                 <div style="overflow-x: auto;">
@@ -182,6 +233,10 @@
                                                     </button>
                                                 </form>
                                             @endif
+                                        @elseif(auth()->user()->role === 'support')
+                                            <a href="{{ route('access.index', ['user_id' => $user->id]) }}" class="btn-table-action" style="background: rgba(99,102,241,0.1); color: var(--primary);">
+                                                🔑 Zarządzaj uprawnieniami
+                                            </a>
                                         @else
                                             <a href="{{ route('access.index', ['user_id' => $user->id]) }}" class="btn-table-action" style="background: rgba(99,102,241,0.1); color: var(--primary);">
                                                 👁 Podgląd uprawnień
@@ -197,6 +252,39 @@
                         </tbody>
                     </table>
                 </div>
+
+                {{-- Paginacja --}}
+                @if($users->total() > 0)
+                    <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                        <span style="font-size: 0.82rem; color: var(--text-muted);">
+                            Wyświetlono {{ $users->firstItem() }}–{{ $users->lastItem() }} z {{ $users->total() }} użytkowników
+                        </span>
+
+                        @if($users->hasPages())
+                            <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                                @if($users->onFirstPage())
+                                    <span style="padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; color: var(--text-muted); opacity: 0.45; border: 1px solid var(--border);">← Poprzednia</span>
+                                @else
+                                    <a href="{{ $users->previousPageUrl() }}" style="padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; color: var(--primary); text-decoration: none; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.25);">← Poprzednia</a>
+                                @endif
+
+                                @foreach($users->getUrlRange(max(1, $users->currentPage() - 2), min($users->lastPage(), $users->currentPage() + 2)) as $page => $url)
+                                    @if($page == $users->currentPage())
+                                        <span style="padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.8rem; font-weight: 700; color: white; background: var(--primary);">{{ $page }}</span>
+                                    @else
+                                        <a href="{{ $url }}" style="padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.8rem; color: var(--text-muted); text-decoration: none; border: 1px solid var(--border);">{{ $page }}</a>
+                                    @endif
+                                @endforeach
+
+                                @if($users->hasMorePages())
+                                    <a href="{{ $users->nextPageUrl() }}" style="padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; color: var(--primary); text-decoration: none; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.25);">Następna →</a>
+                                @else
+                                    <span style="padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; color: var(--text-muted); opacity: 0.45; border: 1px solid var(--border);">Następna →</span>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                @endif
             </div>
         </div>
     </main>

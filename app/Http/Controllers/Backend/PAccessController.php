@@ -11,6 +11,7 @@ use App\Models\PModul;
 use App\Models\POperacje;
 use App\Models\UserActivity;
 use App\Models\Departament;
+use App\Models\Tag;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class PAccessController extends Controller
@@ -18,13 +19,15 @@ class PAccessController extends Controller
     private function buildFilteredUsersQuery(Request $request): array
     {
         $role = auth()->user()->role ?? 'none';
-        if (!in_array($role, ['admin', 'mod', 'view'])) {
+        if (!in_array($role, ['admin', 'mod', 'support', 'view'])) {
             abort(403, 'Brak dostępu.');
         }
 
         $search     = $request->get('search', '');
         $userId     = $request->get('user_id');
+        $userRole   = $request->get('user_role', '');
         $deptId     = $request->get('dept_id');
+        $deptTagId  = $request->get('dept_tag_id');
         $deptStatus = $request->get('dept_status', '');
         $deptFrom   = $request->get('dept_from');
         $deptTo     = $request->get('dept_to');
@@ -40,18 +43,48 @@ class PAccessController extends Controller
             $sortDir = 'asc';
         }
 
-        $baseQuery = User::withCount('pAccesses')
-            ->with(['departments', 'pAccesses.modul.parent', 'pAccesses.operacja']);
+        $supportPairs = ($role === 'support') ? auth()->user()->supportAllowedAccessPairs() : null;
 
-        if ($role === 'mod') {
-            $departmentIds = auth()->user()->departments->pluck('ID_Departament');
-            $baseQuery->whereHas('departments', function($q) use ($departmentIds) {
-                $q->whereIn('Departament.ID_Departament', $departmentIds);
-            });
-            $departments = Departament::whereIn('ID_Departament', $departmentIds)->orderBy('Nazwa')->get();
+        if ($role === 'support') {
+            $baseQuery = User::withCount([
+                'pAccesses' => function ($q) use ($supportPairs) {
+                    User::applySupportPairsFilter($q, $supportPairs);
+                },
+            ])->with([
+                'departments.tags',
+                'pAccesses' => function ($q) use ($supportPairs) {
+                    User::applySupportPairsFilter($q, $supportPairs)->with(['modul.parent', 'operacja']);
+                },
+            ]);
         } else {
-            $departments = Departament::orderBy('Nazwa')->get();
+            $baseQuery = User::withCount('pAccesses')
+                ->with(['departments.tags', 'pAccesses.modul.parent', 'pAccesses.operacja']);
         }
+
+        $scopedDeptIds = null;
+        if ($role === 'mod') {
+            $scopedDeptIds = auth()->user()->departments->pluck('ID_Departament');
+        } elseif ($role === 'support') {
+            $scopedDeptIds = auth()->user()->activeDepartmentIds();
+        }
+
+        if ($scopedDeptIds !== null) {
+            if ($scopedDeptIds->isEmpty()) {
+                $baseQuery->whereRaw('1 = 0');
+            } else {
+                $baseQuery->whereHas('departments', function($q) use ($scopedDeptIds) {
+                    $q->whereIn('Departament.ID_Departament', $scopedDeptIds);
+                });
+            }
+            $departments = Departament::with('tags')
+                ->whereIn('ID_Departament', $scopedDeptIds)
+                ->orderBy('Nazwa')
+                ->get();
+        } else {
+            $departments = Departament::with('tags')->orderBy('Nazwa')->get();
+        }
+
+        $tags = Tag::orderBy('name')->get();
 
         if ($search) {
             $baseQuery->where(function($q) use ($search) {
@@ -64,21 +97,33 @@ class PAccessController extends Controller
             });
         }
 
+        if (in_array($userRole, ['admin', 'mod', 'support', 'view', 'user', 'none'])) {
+            $baseQuery->where('role', $userRole);
+        }
+
         $today = now()->toDateString();
 
-        // Filtrowanie po wydziale (konkretny wydział i/lub status przynależności do wydziału i zakres dat)
+        // Filtrowanie po wydziale (konkretny wydział, tag wydziału, status przynależności i zakres dat)
         if ($deptStatus === 'none') {
-            if ($role === 'mod') {
-                $deptIds = auth()->user()->departments->pluck('ID_Departament');
-                $baseQuery->whereDoesntHave('departments', function($q) use ($deptIds) {
-                    $q->whereIn('Departament.ID_Departament', $deptIds);
+            if ($scopedDeptIds !== null) {
+                $baseQuery->whereDoesntHave('departments', function($q) use ($scopedDeptIds) {
+                    $q->whereIn('Departament.ID_Departament', $scopedDeptIds);
                 });
             } else {
                 $baseQuery->doesntHave('departments');
             }
         } elseif ($deptId) {
-            $baseQuery->whereHas('departments', function($q) use ($deptId, $deptStatus, $deptFrom, $deptTo, $today) {
+            $baseQuery->whereHas('departments', function($q) use ($scopedDeptIds, $deptId, $deptTagId, $deptStatus, $deptFrom, $deptTo, $today) {
+                if ($scopedDeptIds !== null) {
+                    $q->whereIn('Departament.ID_Departament', $scopedDeptIds);
+                }
                 $q->where('Departament.ID_Departament', $deptId);
+
+                if ($deptTagId) {
+                    $q->whereHas('tags', function($tq) use ($deptTagId) {
+                        $tq->where('tags.id', $deptTagId);
+                    });
+                }
 
                 if ($deptStatus === 'active') {
                     $q->where(function($sq) use ($today) {
@@ -107,48 +152,36 @@ class PAccessController extends Controller
                     });
                 }
             });
-        } else {
-            // Brak wybranego konkretnego dept_id
-            if ($deptStatus === 'active') {
-                $baseQuery->whereHas('departments', function($q) use ($today, $role) {
-                    if ($role === 'mod') {
-                        $deptIds = auth()->user()->departments->pluck('ID_Departament');
-                        $q->whereIn('Departament.ID_Departament', $deptIds);
-                    }
+        } elseif ($deptTagId || in_array($deptStatus, ['active', 'expired']) || $deptFrom || $deptTo) {
+            $baseQuery->whereHas('departments', function($q) use ($scopedDeptIds, $deptTagId, $deptStatus, $deptFrom, $deptTo, $today) {
+                if ($scopedDeptIds !== null) {
+                    $q->whereIn('Departament.ID_Departament', $scopedDeptIds);
+                }
+                if ($deptTagId) {
+                    $q->whereHas('tags', function($tq) use ($deptTagId) {
+                        $tq->where('tags.id', $deptTagId);
+                    });
+                }
+                if ($deptStatus === 'active') {
                     $q->where(function($sq) use ($today) {
                         $sq->whereNull('DepartamentUsers.od')->orWhere('DepartamentUsers.od', '<=', $today);
                     })->where(function($sq) use ($today) {
                         $sq->whereNull('DepartamentUsers.do')->orWhere('DepartamentUsers.do', '>=', $today);
                     });
-                });
-            } elseif ($deptStatus === 'expired') {
-                $baseQuery->whereHas('departments', function($q) use ($today, $role) {
-                    if ($role === 'mod') {
-                        $deptIds = auth()->user()->departments->pluck('ID_Departament');
-                        $q->whereIn('Departament.ID_Departament', $deptIds);
-                    }
+                } elseif ($deptStatus === 'expired') {
                     $q->whereNotNull('DepartamentUsers.do')->where('DepartamentUsers.do', '<', $today);
-                });
-            }
-
-            if ($deptFrom || $deptTo) {
-                $baseQuery->whereHas('departments', function($q) use ($deptFrom, $deptTo, $role) {
-                    if ($role === 'mod') {
-                        $deptIds = auth()->user()->departments->pluck('ID_Departament');
-                        $q->whereIn('Departament.ID_Departament', $deptIds);
-                    }
-                    if ($deptFrom) {
-                        $q->where(function($sq) use ($deptFrom) {
-                            $sq->whereNull('DepartamentUsers.do')->orWhere('DepartamentUsers.do', '>=', $deptFrom);
-                        });
-                    }
-                    if ($deptTo) {
-                        $q->where(function($sq) use ($deptTo) {
-                            $sq->whereNull('DepartamentUsers.od')->orWhere('DepartamentUsers.od', '<=', $deptTo);
-                        });
-                    }
-                });
-            }
+                }
+                if ($deptFrom) {
+                    $q->where(function($sq) use ($deptFrom) {
+                        $sq->whereNull('DepartamentUsers.do')->orWhere('DepartamentUsers.do', '>=', $deptFrom);
+                    });
+                }
+                if ($deptTo) {
+                    $q->where(function($sq) use ($deptTo) {
+                        $sq->whereNull('DepartamentUsers.od')->orWhere('DepartamentUsers.od', '<=', $deptTo);
+                    });
+                }
+            });
         }
 
         $accessSortBy  = $request->get('access_sort_by', 'module');
@@ -175,7 +208,10 @@ class PAccessController extends Controller
                 $targetModuleIds = [$modulId];
             }
 
-            $baseQuery->whereHas('pAccesses', function($q) use ($targetModuleIds, $today, $moduleStatus, $moduleFrom, $moduleTo) {
+            $baseQuery->whereHas('pAccesses', function($q) use ($targetModuleIds, $today, $moduleStatus, $moduleFrom, $moduleTo, $role, $supportPairs) {
+                if ($role === 'support') {
+                    User::applySupportPairsFilter($q, $supportPairs);
+                }
                 $q->whereIn('p_modul_id', $targetModuleIds);
                 if ($moduleStatus === 'active') {
                     $q->where(function($sq) use ($today) {
@@ -201,10 +237,19 @@ class PAccessController extends Controller
 
         // Filtrowanie użytkowników na podstawie ogólnego statusu i dat modułów (gdy modul_id nie został wybrany lub dla statusu 'none')
         if ($moduleStatus === 'none') {
-            $baseQuery->doesntHave('pAccesses');
+            if ($role === 'support') {
+                $baseQuery->whereDoesntHave('pAccesses', function($q) use ($supportPairs) {
+                    User::applySupportPairsFilter($q, $supportPairs);
+                });
+            } else {
+                $baseQuery->doesntHave('pAccesses');
+            }
         } elseif (!$modulId) {
             if ($moduleStatus === 'active') {
-                $baseQuery->whereHas('pAccesses', function($q) use ($today) {
+                $baseQuery->whereHas('pAccesses', function($q) use ($today, $role, $supportPairs) {
+                    if ($role === 'support') {
+                        User::applySupportPairsFilter($q, $supportPairs);
+                    }
                     $q->where(function($sq) use ($today) {
                         $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $today);
                     })->where(function($sq) use ($today) {
@@ -212,13 +257,19 @@ class PAccessController extends Controller
                     });
                 });
             } elseif ($moduleStatus === 'expired') {
-                $baseQuery->whereHas('pAccesses', function($q) use ($today) {
+                $baseQuery->whereHas('pAccesses', function($q) use ($today, $role, $supportPairs) {
+                    if ($role === 'support') {
+                        User::applySupportPairsFilter($q, $supportPairs);
+                    }
                     $q->whereNotNull('valid_to')->where('valid_to', '<', $today);
                 });
             }
 
             if ($moduleFrom || $moduleTo) {
-                $baseQuery->whereHas('pAccesses', function($q) use ($moduleFrom, $moduleTo) {
+                $baseQuery->whereHas('pAccesses', function($q) use ($moduleFrom, $moduleTo, $role, $supportPairs) {
+                    if ($role === 'support') {
+                        User::applySupportPairsFilter($q, $supportPairs);
+                    }
                     if ($moduleFrom) {
                         $q->where(function($sq) use ($moduleFrom) {
                             $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $moduleFrom);
@@ -241,10 +292,11 @@ class PAccessController extends Controller
         }
 
         return compact(
-            'baseQuery', 'role', 'search', 'userId', 'departments', 'deptId', 'deptStatus',
-            'deptFrom', 'deptTo', 'sortBy', 'sortDir', 'userStatus', 'accessSortBy',
-            'accessSortDir', 'moduleStatus', 'moduleFrom', 'moduleTo', 'modulId',
-            'targetModuleIds', 'selectedModule', 'today'
+            'baseQuery', 'role', 'search', 'userId', 'userRole', 'departments', 'tags',
+            'deptId', 'deptTagId', 'deptStatus', 'deptFrom', 'deptTo', 'sortBy', 'sortDir',
+            'userStatus', 'accessSortBy', 'accessSortDir', 'moduleStatus', 'moduleFrom',
+            'moduleTo', 'modulId', 'targetModuleIds', 'selectedModule', 'today',
+            'supportPairs', 'scopedDeptIds'
         );
     }
 
@@ -256,13 +308,27 @@ class PAccessController extends Controller
         $selectedUser    = null;
         $selectedAccesses = null;
         if ($userId) {
-            $selectedUser = User::with('departments')->find($userId);
+            $selectedUser = User::with('departments.tags')->find($userId);
             if ($selectedUser) {
+                if ($role === 'mod') {
+                    if ($selectedUser->departments->pluck('ID_Departament')->intersect($scopedDeptIds)->isEmpty()) {
+                        abort(403, 'Brak dostępu do tego użytkownika.');
+                    }
+                } elseif ($role === 'support') {
+                    if (!auth()->user()->canSupportManageUser($selectedUser)) {
+                        abort(403, 'Brak dostępu do tego użytkownika.');
+                    }
+                }
+
                 $accessQuery = PAccess::with(['modul.parent', 'operacja'])
                     ->where('user_id', $userId)
                     ->select('P_access.*')
                     ->join('P_modul', 'P_access.p_modul_id', '=', 'P_modul.id')
                     ->leftJoin('P_operacje', 'P_access.p_operacje_id', '=', 'P_operacje.id');
+
+                if ($role === 'support') {
+                    User::applySupportPairsFilter($accessQuery, $supportPairs);
+                }
 
                 if ($moduleStatus === 'active') {
                     $accessQuery->where(function($sq) use ($today) {
@@ -304,12 +370,23 @@ class PAccessController extends Controller
             }
         }
 
-        $modules = PModul::whereNull('parent_id')->with('children.children')->orderBy('nazwa')->get();
+        $supportModules = null;
+        if ($role === 'support') {
+            $allowedModuleIds = $supportPairs->pluck('p_modul_id')->unique()->values();
+            $supportModules = PModul::with('parent')->whereIn('id', $allowedModuleIds)->orderBy('nazwa')->get();
+            $modules = $supportModules;
+        } else {
+            $modules = PModul::whereNull('parent_id')->with('children.children')->orderBy('nazwa')->get();
+        }
+        $supportCanManage = ($role === 'support' && $supportPairs->isNotEmpty());
 
         $users = $baseQuery->orderBy($sortBy, $sortDir)->paginate(20)->withQueryString();
 
         return view('Backend.admin.permissions.access.index', compact(
-            'users', 'role', 'search', 'selectedUser', 'selectedAccesses', 'userId', 'departments', 'deptId', 'deptStatus', 'deptFrom', 'deptTo', 'sortBy', 'sortDir', 'userStatus', 'accessSortBy', 'accessSortDir', 'moduleStatus', 'moduleFrom', 'moduleTo', 'modules', 'modulId'
+            'users', 'role', 'supportCanManage', 'supportModules', 'search', 'selectedUser', 'selectedAccesses', 'userId',
+            'userRole', 'departments', 'tags', 'deptId', 'deptTagId', 'deptStatus', 'deptFrom', 'deptTo',
+            'sortBy', 'sortDir', 'userStatus', 'accessSortBy', 'accessSortDir', 'moduleStatus',
+            'moduleFrom', 'moduleTo', 'modules', 'modulId'
         ));
     }
 
@@ -317,6 +394,10 @@ class PAccessController extends Controller
     {
         $filterData = $this->buildFilteredUsersQuery($request);
         extract($filterData);
+
+        if ($request->filled('only_user_id')) {
+            $baseQuery->where('users.id', (int) $request->get('only_user_id'));
+        }
 
         $users = $baseQuery->orderBy($sortBy, $sortDir)->get();
 
@@ -379,6 +460,7 @@ class PAccessController extends Controller
         }
 
         $deptName = $deptId ? ($departments->firstWhere('ID_Departament', $deptId)?->Nazwa ?? Departament::find($deptId)?->Nazwa ?? 'Wybrany wydział') : null;
+        $deptTagName = $deptTagId ? ($tags->firstWhere('id', $deptTagId)?->name ?? Tag::find($deptTagId)?->name ?? 'Wybrany tag') : null;
         $moduleName = $selectedModule ? $this->getModuleFullPath($selectedModule) : null;
 
         $filterSummary = [
@@ -386,8 +468,12 @@ class PAccessController extends Controller
             'search_active'        => (bool) $search,
             'user_status'          => ($userStatus === 'active' || $userStatus === '1') ? 'Tylko aktywni' : (($userStatus === 'inactive' || $userStatus === '0') ? 'Tylko nieaktywni' : 'Wszyscy użytkownicy'),
             'user_status_active'   => (bool) $userStatus,
+            'user_role'            => $userRole ? ucfirst($userRole) : 'Wszystkie role',
+            'user_role_active'     => (bool) $userRole,
             'dept'                 => $deptName ?: 'Wszystkie wydziały',
             'dept_active'          => (bool) $deptId,
+            'dept_tag'             => $deptTagName ? ('#' . $deptTagName) : 'Wszystkie tagi',
+            'dept_tag_active'      => (bool) $deptTagId,
             'dept_status'          => $deptStatus === 'active' ? 'Tylko aktywny wydział' : ($deptStatus === 'expired' ? 'Z wygasłym wydziałem' : ($deptStatus === 'none' ? 'Bez wydziału' : 'Wszystkie okresy wydziału')),
             'dept_status_active'   => (bool) $deptStatus,
             'dept_dates'           => ($deptFrom || $deptTo) ? ('od: ' . ($deptFrom ?: '∞') . ' do: ' . ($deptTo ?: '∞')) : 'Dowolny okres',
@@ -412,10 +498,10 @@ class PAccessController extends Controller
 
     public function create(Request $request)
     {
-        $this->authorizeAdmin();
+        $role = $this->authorizeAdminOrSupport();
         $duplicateAccess = $request->get('duplicate_id') ? PAccess::find($request->get('duplicate_id')) : null;
         $userId = $request->get('user_id') ?? ($duplicateAccess ? $duplicateAccess->user_id : null);
-        $preselectedUser = $userId ? User::find($userId) : null;
+        $preselectedUser = $userId ? User::with('departments')->find($userId) : null;
         $deptId = $request->get('dept_id');
 
         $usersQuery = User::with('departments')->orderBy('name');
@@ -424,17 +510,59 @@ class PAccessController extends Controller
                 $q->where('Departament.ID_Departament', $deptId);
             });
         }
-        $users = $preselectedUser ? collect() : $usersQuery->get();
-        $departments = Departament::orderBy('Nazwa')->get();
-        $modules = PModul::whereNull('parent_id')->with('children')->orderBy('nazwa')->get();
-        $operations = POperacje::orderBy('nazwa')->get();
 
-        return view('Backend.admin.permissions.access.create', compact('users', 'modules', 'operations', 'preselectedUser', 'duplicateAccess', 'departments', 'deptId'));
+        $supportModules = null;
+        $allowedPairsMap = null;
+
+        if ($role === 'support') {
+            $supportDeptIds = auth()->user()->activeDepartmentIds();
+            $supportPairs = auth()->user()->supportAllowedAccessPairs();
+
+            if ($duplicateAccess && !auth()->user()->canSupportManageAccess($duplicateAccess)) {
+                abort(403, 'Brak dostępu do duplikowania tego uprawnienia.');
+            }
+            if ($preselectedUser && !auth()->user()->canSupportManageUser($preselectedUser)) {
+                abort(403, 'Brak dostępu do tego użytkownika.');
+            }
+
+            if ($supportDeptIds->isEmpty()) {
+                $usersQuery->whereRaw('1 = 0');
+            } else {
+                $usersQuery->whereHas('departments', function($q) use ($supportDeptIds) {
+                    $q->whereIn('Departament.ID_Departament', $supportDeptIds);
+                });
+            }
+
+            $departments = Departament::whereIn('ID_Departament', $supportDeptIds)->orderBy('Nazwa')->get();
+
+            $allowedModuleIds = $supportPairs->pluck('p_modul_id')->unique()->values();
+            $allowedOpIds = $supportPairs->pluck('p_operacje_id')->unique()->values();
+
+            $allowedPairsMap = [];
+            foreach ($supportPairs as $pair) {
+                $allowedPairsMap[(int) $pair->p_modul_id][] = (int) $pair->p_operacje_id;
+            }
+
+            $supportModules = PModul::with('parent')->whereIn('id', $allowedModuleIds)->orderBy('nazwa')->get();
+            $modules = collect();
+            $operations = POperacje::whereIn('id', $allowedOpIds)->orderBy('nazwa')->get();
+        } else {
+            $departments = Departament::orderBy('Nazwa')->get();
+            $modules = PModul::whereNull('parent_id')->with('children')->orderBy('nazwa')->get();
+            $operations = POperacje::orderBy('nazwa')->get();
+        }
+
+        $users = $preselectedUser ? collect() : $usersQuery->get();
+
+        return view('Backend.admin.permissions.access.create', compact(
+            'users', 'modules', 'operations', 'preselectedUser', 'duplicateAccess',
+            'departments', 'deptId', 'role', 'supportModules', 'allowedPairsMap'
+        ));
     }
 
     public function store(Request $request)
     {
-        $this->authorizeAdmin();
+        $role = $this->authorizeAdminOrSupport();
         
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
@@ -445,6 +573,16 @@ class PAccessController extends Controller
             'login' => 'nullable|string|max:255',
             'uwagi' => 'nullable|string',
         ]);
+
+        if ($role === 'support') {
+            $targetUser = User::with('departments')->findOrFail($validated['user_id']);
+            if (!auth()->user()->canSupportManageUser($targetUser)) {
+                abort(403, 'Brak dostępu do tego użytkownika.');
+            }
+            if (!auth()->user()->canSupportManagePair((int) $validated['p_modul_id'], (int) $validated['p_operacje_id'])) {
+                abort(403, 'Brak uprawnień do nadania tego modułu i operacji.');
+            }
+        }
 
         // Check if access already exists in an overlapping time period
         if ($this->hasOverlappingAccess(
@@ -478,17 +616,52 @@ class PAccessController extends Controller
 
     public function edit(PAccess $access)
     {
-        $this->authorizeAdmin();
-        $users = User::orderBy('name')->get();
-        $modules = PModul::whereNull('parent_id')->with('children')->orderBy('nazwa')->get();
-        $operations = POperacje::orderBy('nazwa')->get();
+        $role = $this->authorizeAdminOrSupport();
+
+        $supportModules = null;
+        $allowedPairsMap = null;
+
+        if ($role === 'support') {
+            if (!auth()->user()->canSupportManageAccess($access)) {
+                abort(403, 'Brak dostępu do tego uprawnienia.');
+            }
+
+            $supportDeptIds = auth()->user()->activeDepartmentIds();
+            $supportPairs = auth()->user()->supportAllowedAccessPairs();
+
+            $users = User::whereHas('departments', function($q) use ($supportDeptIds) {
+                $q->whereIn('Departament.ID_Departament', $supportDeptIds);
+            })->orderBy('name')->get();
+
+            $allowedModuleIds = $supportPairs->pluck('p_modul_id')->unique()->values();
+            $allowedOpIds = $supportPairs->pluck('p_operacje_id')->unique()->values();
+
+            $allowedPairsMap = [];
+            foreach ($supportPairs as $pair) {
+                $allowedPairsMap[(int) $pair->p_modul_id][] = (int) $pair->p_operacje_id;
+            }
+
+            $supportModules = PModul::with('parent')->whereIn('id', $allowedModuleIds)->orderBy('nazwa')->get();
+            $modules = collect();
+            $operations = POperacje::whereIn('id', $allowedOpIds)->orderBy('nazwa')->get();
+        } else {
+            $users = User::orderBy('name')->get();
+            $modules = PModul::whereNull('parent_id')->with('children')->orderBy('nazwa')->get();
+            $operations = POperacje::orderBy('nazwa')->get();
+        }
         
-        return view('Backend.admin.permissions.access.edit', compact('access', 'users', 'modules', 'operations'));
+        return view('Backend.admin.permissions.access.edit', compact(
+            'access', 'users', 'modules', 'operations', 'role', 'supportModules', 'allowedPairsMap'
+        ));
     }
 
     public function update(Request $request, PAccess $access)
     {
-        $this->authorizeAdmin();
+        $role = $this->authorizeAdminOrSupport();
+
+        if ($role === 'support' && !auth()->user()->canSupportManageAccess($access)) {
+            abort(403, 'Brak dostępu do tego uprawnienia.');
+        }
 
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
@@ -499,6 +672,16 @@ class PAccessController extends Controller
             'login' => 'nullable|string|max:255',
             'uwagi' => 'nullable|string',
         ]);
+
+        if ($role === 'support') {
+            $targetUser = User::with('departments')->findOrFail($validated['user_id']);
+            if (!auth()->user()->canSupportManageUser($targetUser)) {
+                abort(403, 'Brak dostępu do tego użytkownika.');
+            }
+            if (!auth()->user()->canSupportManagePair((int) $validated['p_modul_id'], (int) $validated['p_operacje_id'])) {
+                abort(403, 'Brak uprawnień do przypisania tego modułu i operacji.');
+            }
+        }
 
         if ($this->hasOverlappingAccess(
             (int) $validated['user_id'],
@@ -532,7 +715,11 @@ class PAccessController extends Controller
 
     public function destroy(PAccess $access)
     {
-        $this->authorizeAdmin();
+        $role = $this->authorizeAdminOrSupport();
+
+        if ($role === 'support' && !auth()->user()->canSupportManageAccess($access)) {
+            abort(403, 'Brak dostępu do tego uprawnienia.');
+        }
         
         $userId = $access->user_id;
 
@@ -557,12 +744,31 @@ class PAccessController extends Controller
 
     public function getHistory(Request $request)
     {
+        $role = auth()->user()->role ?? 'none';
+        if (!in_array($role, ['admin', 'mod', 'support', 'view'])) {
+            abort(403, 'Brak dostępu.');
+        }
+
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'p_modul_id' => 'required|exists:P_modul,id',
             'p_operacje_id' => 'required|exists:P_operacje,id',
             'access_id' => 'nullable|exists:P_access,id',
         ]);
+
+        $targetUser = User::with('departments')->findOrFail($validated['user_id']);
+
+        if ($role === 'mod') {
+            $deptIds = auth()->user()->departments->pluck('ID_Departament');
+            if ($targetUser->departments->pluck('ID_Departament')->intersect($deptIds)->isEmpty()) {
+                abort(403, 'Brak dostępu do tego użytkownika.');
+            }
+        } elseif ($role === 'support') {
+            if (!auth()->user()->canSupportManageUser($targetUser)
+                || !auth()->user()->canSupportManagePair((int) $validated['p_modul_id'], (int) $validated['p_operacje_id'])) {
+                abort(403, 'Brak dostępu do historii tego uprawnienia.');
+            }
+        }
 
         $history = \App\Models\PAccessHistory::with(['modul', 'operacja'])
             ->where('user_id', $validated['user_id'])
@@ -583,7 +789,6 @@ class PAccessController extends Controller
                 ?? $activeQuery->latest('id')->first();
         }
 
-        $targetUser = User::with('departments')->find($validated['user_id']);
         $matchingDepts = $active ? $active->getMatchingDepartments($targetUser)->map(function($d) {
             $info = $d->Nazwa;
             if ($d->pivot->od || $d->pivot->do) {
@@ -613,6 +818,15 @@ class PAccessController extends Controller
                 ];
             })
         ]);
+    }
+
+    private function authorizeAdminOrSupport(): string
+    {
+        $role = auth()->user()->role ?? 'none';
+        if (!in_array($role, ['admin', 'support'])) {
+            abort(403, 'Brak dostępu.');
+        }
+        return $role;
     }
 
     private function authorizeAdmin()

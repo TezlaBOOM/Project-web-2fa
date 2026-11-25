@@ -3,7 +3,7 @@
 
 @section('content')
     <!-- Sidebar -->
-    @if($role === 'admin' || $role === 'view')
+    @if(in_array($role, ['admin', 'view', 'support']))
         @include('Backend.admin._sidebar')
     @elseif($role === 'mod')
         @include('Backend.mod._sidebar')

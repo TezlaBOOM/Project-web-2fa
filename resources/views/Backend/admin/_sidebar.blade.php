@@ -39,7 +39,7 @@
             </div>
         </div>
 
-        @if(auth()->user()->role === 'admin' || auth()->user()->role === 'mod')
+        @if(in_array(auth()->user()->role, ['admin', 'mod', 'view', 'support']))
             {{-- Uprawnienia (podmenu) --}}
             <div class="nav-group {{ request()->routeIs('modules.*') || request()->routeIs('operations.*') || request()->routeIs('access.*') ? 'open' : '' }}" id="nav-group-permissions">
                 <div class="nav-group-header {{ request()->routeIs('modules.*') || request()->routeIs('operations.*') || request()->routeIs('access.*') ? 'active' : '' }}"
@@ -85,11 +85,11 @@
                    class="nav-submenu-link {{ request()->routeIs('settings') ? 'active' : '' }}">
                     Zmiana hasła
                 </a>
-                <a href="{{ route('settings.logon') }}"
-                   class="nav-submenu-link {{ request()->routeIs('settings.logon') ? 'active' : '' }}">
-                    Logowanie
-                </a>
                 @if(auth()->user()->role === 'admin')
+                    <a href="{{ route('settings.logon') }}"
+                       class="nav-submenu-link {{ request()->routeIs('settings.logon') ? 'active' : '' }}">
+                        Logowanie
+                    </a>
                     <a href="{{ route('settings') }}#database-backup"
                        class="nav-submenu-link">
                         Kopia i import bazy

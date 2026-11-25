@@ -2,7 +2,11 @@
 @section('title', 'Uprawnienia użytkownika: ' . $targetUser->name)
 
 @section('content')
-    @include('Backend.mod._sidebar')
+    @if(in_array(auth()->user()->role, ['admin', 'view', 'support']))
+        @include('Backend.admin._sidebar')
+    @else
+        @include('Backend.mod._sidebar')
+    @endif
 
     <main class="main-content">
         <div class="header-bar">

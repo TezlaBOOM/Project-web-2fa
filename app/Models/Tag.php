@@ -1,0 +1,18 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Tag extends Model
+{
+    protected $fillable = [
+        'name',
+    ];
+
+    public function departments()
+    {
+        return $this->belongsToMany(Departament::class, 'departament_tag', 'tag_id', 'ID_Departament')
+            ->withTimestamps();
+    }
+}

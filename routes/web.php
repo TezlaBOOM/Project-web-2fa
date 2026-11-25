@@ -37,7 +37,7 @@ Route::middleware('auth')->group(function () {
         $user = auth()->user();
         $role = $user->role ?? 'none';
         
-        $allowedRoles = ['admin', 'mod', 'view', 'user', 'none'];
+        $allowedRoles = ['admin', 'mod', 'support', 'view', 'user', 'none'];
         if (!in_array($role, $allowedRoles)) {
             $role = 'none';
         }
@@ -70,6 +70,23 @@ Route::middleware('auth')->group(function () {
                 $usersCount = \App\Models\User::whereHas('departments', function ($q) use ($departmentIds) {
                     $q->whereIn('Departament.ID_Departament', $departmentIds);
                 })->count();
+            }
+        } elseif ($role === 'support') {
+            $departmentIds = $user->activeDepartmentIds();
+            $departmentsCount = $departmentIds->count();
+            if ($departmentIds->isNotEmpty()) {
+                $usersCount = \App\Models\User::whereHas('departments', function ($q) use ($departmentIds) {
+                    $q->whereIn('Departament.ID_Departament', $departmentIds);
+                })->count();
+
+                $supportPairs = $user->supportAllowedAccessPairs();
+                if ($supportPairs->isNotEmpty()) {
+                    $accessQuery = \App\Models\PAccess::whereHas('user.departments', function ($q) use ($departmentIds) {
+                        $q->whereIn('Departament.ID_Departament', $departmentIds);
+                    });
+                    \App\Models\User::applySupportPairsFilter($accessQuery, $supportPairs);
+                    $accessesCount = $accessQuery->count();
+                }
             }
         } elseif ($role === 'view') {
             $usersCount = \App\Models\User::count();

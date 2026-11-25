@@ -14,13 +14,13 @@ class SettingsController extends Controller
     {
         $role = auth()->user()->role ?? 'none';
         
-        $allowedRoles = ['admin', 'mod', 'view', 'user', 'none'];
+        $allowedRoles = ['admin', 'mod', 'support', 'view', 'user', 'none'];
         if (!in_array($role, $allowedRoles)) {
             $role = 'none';
         }
         $settings = \App\Models\Setting::pluck('value', 'key')->toArray();
         
-        $viewRole = in_array($role, ['admin', 'view']) ? 'admin' : $role;
+        $viewRole = in_array($role, ['admin', 'view', 'support']) ? 'admin' : $role;
         return view("Backend.{$viewRole}.settings.index", compact('settings'));
     }
 

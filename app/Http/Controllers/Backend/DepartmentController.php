@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Departament;
+use App\Models\Tag;
 use App\Models\UserActivity;
 
 class DepartmentController extends Controller
@@ -12,7 +13,7 @@ class DepartmentController extends Controller
     private function checkAccess()
     {
         $role = auth()->user()->role ?? 'none';
-        if (!in_array($role, ['admin', 'mod', 'view'])) {
+        if (!in_array($role, ['admin', 'mod', 'support', 'view'])) {
             abort(403, 'Brak dostępu.');
         }
         return $role;
@@ -21,7 +22,9 @@ class DepartmentController extends Controller
     public function index(Request $request)
     {
         $this->checkAccess();
-        
+
+        $search = trim((string) $request->get('search', ''));
+        $tagId = $request->get('tag_id');
         $sortBy = $request->get('sort_by', 'Nazwa');
         $sortDir = $request->get('sort_dir', 'asc');
         
@@ -32,8 +35,28 @@ class DepartmentController extends Controller
             $sortDir = 'asc';
         }
 
-        $departments = Departament::orderBy($sortBy, $sortDir)->get();
-        return view('Backend.admin.departments.index', compact('departments', 'sortBy', 'sortDir'));
+        $query = Departament::with('tags');
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('Nazwa', 'like', "%{$search}%")
+                  ->orWhere('Description', 'like', "%{$search}%")
+                  ->orWhereHas('tags', function ($tq) use ($search) {
+                      $tq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        if ($tagId) {
+            $query->whereHas('tags', function ($tq) use ($tagId) {
+                $tq->where('tags.id', $tagId);
+            });
+        }
+
+        $departments = $query->orderBy($sortBy, $sortDir)->get();
+        $tags = Tag::orderBy('name')->get();
+
+        return view('Backend.admin.departments.index', compact('departments', 'sortBy', 'sortDir', 'tags', 'tagId', 'search'));
     }
 
     public function create()
@@ -42,7 +65,8 @@ class DepartmentController extends Controller
         if ($role !== 'admin') {
             abort(403, 'Brak dostępu.');
         }
-        return view('Backend.admin.departments.create');
+        $allTags = Tag::orderBy('name')->get();
+        return view('Backend.admin.departments.create', compact('allTags'));
     }
 
     public function store(Request $request)
@@ -55,12 +79,18 @@ class DepartmentController extends Controller
         $validated = $request->validate([
             'Nazwa'       => 'required|string|max:255',
             'Description' => 'nullable|string',
+            'tags'        => 'nullable|string|max:1000',
         ], [
             'Nazwa.required' => 'Nazwa wydziału jest wymagana.',
             'Nazwa.max'      => 'Nazwa wydziału może mieć maksymalnie 255 znaków.',
         ]);
 
-        Departament::create($validated);
+        $department = Departament::create([
+            'Nazwa'       => $validated['Nazwa'],
+            'Description' => $validated['Description'] ?? null,
+        ]);
+
+        $department->syncTagsFromString($validated['tags'] ?? '');
 
         UserActivity::log('create_department', "Utworzono wydział: {$validated['Nazwa']}");
 
@@ -74,7 +104,9 @@ class DepartmentController extends Controller
         if ($role !== 'admin') {
             abort(403, 'Brak dostępu.');
         }
-        return view('Backend.admin.departments.edit', compact('department'));
+        $department->load('tags');
+        $allTags = Tag::orderBy('name')->get();
+        return view('Backend.admin.departments.edit', compact('department', 'allTags'));
     }
 
     public function update(Request $request, Departament $department)
@@ -87,6 +119,7 @@ class DepartmentController extends Controller
         $validated = $request->validate([
             'Nazwa'       => 'required|string|max:255',
             'Description' => 'nullable|string',
+            'tags'        => 'nullable|string|max:1000',
         ], [
             'Nazwa.required' => 'Nazwa wydziału jest wymagana.',
             'Nazwa.max'      => 'Nazwa wydziału może mieć maksymalnie 255 znaków.',
@@ -95,6 +128,8 @@ class DepartmentController extends Controller
         $department->Nazwa       = $validated['Nazwa'];
         $department->Description = $validated['Description'] ?? null;
         $department->save();
+
+        $department->syncTagsFromString($validated['tags'] ?? '');
 
         UserActivity::log('update_department', "Zaktualizowano wydział: {$department->Nazwa}");
 

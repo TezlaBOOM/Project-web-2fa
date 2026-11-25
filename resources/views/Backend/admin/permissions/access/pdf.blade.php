@@ -180,6 +180,16 @@
                 </td>
             </tr>
             <tr>
+                <td class="filter-label">Rola użytkownika:</td>
+                <td class="filter-value {{ !empty($filterSummary['user_role_active']) ? 'filter-active' : '' }}">
+                    {{ $filterSummary['user_role'] ?? 'Wszystkie role' }}
+                </td>
+                <td class="filter-label">Tag wydziału:</td>
+                <td class="filter-value {{ !empty($filterSummary['dept_tag_active']) ? 'filter-active' : '' }}">
+                    {{ $filterSummary['dept_tag'] ?? 'Wszystkie tagi' }}
+                </td>
+            </tr>
+            <tr>
                 <td class="filter-label">Wydział:</td>
                 <td class="filter-value {{ $filterSummary['dept_active'] ? 'filter-active' : '' }}">
                     {{ $filterSummary['dept'] }}

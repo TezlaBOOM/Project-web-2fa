@@ -74,6 +74,34 @@
                         @enderror
                     </div>
 
+                    <!-- Tagi -->
+                    <div class="form-group">
+                        <label for="tags" class="form-label">Tagi</label>
+                        <input
+                            type="text"
+                            id="tags"
+                            name="tags"
+                            class="form-control @error('tags') form-control-error @enderror"
+                            value="{{ old('tags') }}"
+                            placeholder="np. IT, Biuro, Centrala (oddziel przecinkami)"
+                            autocomplete="off"
+                        >
+                        @error('tags')
+                            <p class="form-error-msg">{{ $message }}</p>
+                        @enderror
+                        @if(isset($allTags) && $allTags->isNotEmpty())
+                            <div style="margin-top: 0.6rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center;">
+                                <span style="font-size: 0.75rem; color: var(--text-muted); margin-right: 0.25rem;">Istniejące tagi:</span>
+                                @foreach($allTags as $tag)
+                                    <button type="button" onclick="toggleTagChip('{{ addslashes($tag->name) }}')"
+                                            style="background: rgba(99, 102, 241, 0.1); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.25); padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; cursor: pointer;">
+                                        + #{{ $tag->name }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
                     <!-- Przyciski akcji -->
                     <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
                         <button type="submit" class="btn-primary" id="submit-btn" style="flex: 1;">
@@ -114,4 +142,21 @@
         line-height: 1.6;
     }
 </style>
+@endpush
+
+@push('scripts')
+<script>
+    function toggleTagChip(tagName) {
+        const input = document.getElementById('tags');
+        if (!input) return;
+        const parts = input.value.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+        const idx = parts.findIndex(p => p.toLowerCase() === tagName.toLowerCase());
+        if (idx === -1) {
+            parts.push(tagName);
+        } else {
+            parts.splice(idx, 1);
+        }
+        input.value = parts.join(', ');
+    }
+</script>
 @endpush

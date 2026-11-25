@@ -33,6 +33,13 @@ class DatabaseSeeder extends Seeder
         ]);
 
         User::create([
+            'name' => 'Support',
+            'email' => 'support@admin.com',
+            'password' => Hash::make('support'),
+            'role' => 'support',
+        ]);
+
+        User::create([
             'name' => 'User',
             'email' => 'user@admin.com',
             'password' => Hash::make('user'),

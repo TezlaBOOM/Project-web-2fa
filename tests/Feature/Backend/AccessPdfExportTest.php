@@ -95,4 +95,43 @@ class AccessPdfExportTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    public function test_view_role_can_export_filtered_and_single_user_pdf(): void
+    {
+        $viewer = User::factory()->create(['role' => 'view', 'name' => 'Obserwator', 'is_active' => true]);
+        $dept = Departament::create(['Nazwa' => 'Wydział Logistyki']);
+        $dept->syncTagsFromString('LogistykaTag');
+
+        $targetUser = User::factory()->create(['name' => 'Marek Celny', 'role' => 'user', 'is_active' => true]);
+        $targetUser->departments()->attach($dept->ID_Departament);
+
+        $otherUser = User::factory()->create(['name' => 'Katarzyna Inna', 'role' => 'mod', 'is_active' => true]);
+
+        $modul = PModul::create(['nazwa' => 'WMS']);
+        $op = POperacje::create(['nazwa' => 'Podgląd']);
+        PAccess::create([
+            'user_id' => $targetUser->id,
+            'p_modul_id' => $modul->id,
+            'p_operacje_id' => $op->id,
+        ]);
+
+        $tag = \App\Models\Tag::where('name', 'LogistykaTag')->first();
+
+        // Filtered PDF export by tag and user_role
+        $responseFiltered = $this->actingAs($viewer)->get(route('access.pdf', [
+            'dept_tag_id' => $tag->id,
+            'user_role' => 'user',
+        ]));
+        $responseFiltered->assertStatus(200);
+        $this->assertStringContainsString('application/pdf', $responseFiltered->headers->get('content-type'));
+        $this->assertStringStartsWith('%PDF-', $responseFiltered->getContent());
+
+        // Single-user PDF export
+        $responseSingle = $this->actingAs($viewer)->get(route('access.pdf', [
+            'only_user_id' => $targetUser->id,
+        ]));
+        $responseSingle->assertStatus(200);
+        $this->assertStringContainsString('application/pdf', $responseSingle->headers->get('content-type'));
+        $this->assertStringStartsWith('%PDF-', $responseSingle->getContent());
+    }
 }

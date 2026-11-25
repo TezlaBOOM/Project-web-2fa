@@ -34,6 +34,9 @@ class ViewRoleTest extends TestCase
         $response->assertSee('Zarejestrowani Użytkownicy');
         $response->assertSee('Wydziały');
         $response->assertSee('Przypisane Uprawnienia');
+        // Obserwator powinien widzieć w menu bocznym sekcję Uprawnienia -> Dostęp
+        $response->assertSee('Uprawnienia');
+        $response->assertSee(route('access.index'));
     }
 
     public function test_view_role_can_view_users_and_their_departments()
@@ -107,12 +110,14 @@ class ViewRoleTest extends TestCase
             'valid_to' => '2026-12-31',
         ]);
 
-        // Can view access page with user permissions
+        // Can view access page with user permissions and PDF download buttons
         $response = $this->actingAs($viewer)->get(route('access.index', ['user_id' => $user->id]));
         $response->assertStatus(200);
         $response->assertSee('User With Access');
         $response->assertSee('Moduł Magazyn');
         $response->assertSee('Odczyt');
+        $response->assertSee('Pobierz PDF');
+        $response->assertSee('PDF użytkownika');
         $response->assertDontSee('+ Dodaj Uprawnienie');
 
         // Cannot create access
