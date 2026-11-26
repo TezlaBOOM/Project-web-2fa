@@ -15,7 +15,7 @@
                 <p>Zarządzaj uprawnieniami – {{ $users->total() }} {{ $users->total() === 1 ? 'użytkownik' : 'użytkowników' }}</p>
             </div>
             @if($role === 'admin' || !empty($supportCanManage))
-                <a href="{{ route('access.create', $selectedUser ? ['user_id' => $selectedUser->id] : []) }}"
+                <a href="{{ route('access.create', ($selectedUser && ($role === 'admin' || !empty($supportCanManageSelectedUser))) ? ['user_id' => $selectedUser->id] : []) }}"
                    class="btn-primary" style="text-decoration: none; padding: 0.5rem 1.25rem; white-space: nowrap;">
                     + Dodaj Uprawnienie
                 </a>
@@ -63,13 +63,15 @@
                             <span>👤</span> Użytkownik i konto
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                            <div>
-                                <select name="user_status" id="user-status-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
-                                    <option value="">Wszyscy użytkownicy (status konta)</option>
-                                    <option value="active" {{ ($userStatus === 'active' || $userStatus === '1') ? 'selected' : '' }}>Tylko aktywni</option>
-                                    <option value="inactive" {{ ($userStatus === 'inactive' || $userStatus === '0') ? 'selected' : '' }}>Tylko nieaktywni</option>
-                                </select>
-                            </div>
+                            @if($role !== 'support')
+                                <div>
+                                    <select name="user_status" id="user-status-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
+                                        <option value="">Wszyscy użytkownicy (status konta)</option>
+                                        <option value="active" {{ ($userStatus === 'active' || $userStatus === '1') ? 'selected' : '' }}>Tylko aktywni</option>
+                                        <option value="inactive" {{ ($userStatus === 'inactive' || $userStatus === '0') ? 'selected' : '' }}>Tylko nieaktywni</option>
+                                    </select>
+                                </div>
+                            @endif
                             <div>
                                 <select name="user_role" id="user-role-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
                                     <option value="">Wszystkie role użytkowników</option>
@@ -148,13 +150,22 @@
                                     @endif
                                 </select>
 
-                                <select name="module_status" id="module-status-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
-                                    <option value="">Wszystkie statusy</option>
-                                    <option value="active" {{ ($moduleStatus === 'active') ? 'selected' : '' }}>Tylko aktywny moduł</option>
-                                    <option value="expired" {{ ($moduleStatus === 'expired') ? 'selected' : '' }}>Z wygasłym modułem</option>
-                                    <option value="none" {{ ($moduleStatus === 'none') ? 'selected' : '' }}>Bez modułów</option>
+                                <select name="modul_tag_id" id="modul-tag-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
+                                    <option value="">Wszystkie tagi modułów</option>
+                                    @foreach($moduleTags ?? [] as $mTag)
+                                        <option value="{{ $mTag->id }}" {{ ($modulTagId ?? '') == $mTag->id ? 'selected' : '' }}>
+                                            #{{ $mTag->name }}
+                                        </option>
+                                    @endforeach
                                 </select>
                             </div>
+
+                            <select name="module_status" id="module-status-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;">
+                                <option value="">Wszystkie statusy</option>
+                                <option value="active" {{ ($moduleStatus === 'active') ? 'selected' : '' }}>Tylko aktywny moduł</option>
+                                <option value="expired" {{ ($moduleStatus === 'expired') ? 'selected' : '' }}>Z wygasłym modułem</option>
+                                <option value="none" {{ ($moduleStatus === 'none') ? 'selected' : '' }}>Bez modułów</option>
+                            </select>
 
                             <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem 0.6rem;">
                                 <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">Moduł:</span>
@@ -169,7 +180,7 @@
 
                 {{-- Przyciski akcji filtra --}}
                 <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.65rem; margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap;">
-                    @if($search || ($userRole ?? '') || $deptId || ($deptTagId ?? '') || $deptStatus || $deptFrom || $deptTo || $userStatus || $modulId || $moduleStatus || $moduleFrom || $moduleTo)
+                    @if($search || ($userRole ?? '') || $deptId || ($deptTagId ?? '') || $deptStatus || $deptFrom || $deptTo || ($role !== 'support' && $userStatus) || $modulId || ($modulTagId ?? '') || $moduleStatus || $moduleFrom || $moduleTo)
                         <a href="{{ route('access.index', array_filter(['user_id' => $userId, 'sort_by' => $sortBy !== 'name' ? $sortBy : null, 'sort_dir' => $sortDir !== 'asc' ? $sortDir : null])) }}"
                            style="color: var(--text-muted); text-decoration: none; font-size: 0.82rem; padding: 0.5rem 0.9rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap; transition: all 0.15s;"
                            onmouseover="this.style.color='#ef4444'; this.style.background='rgba(239,68,68,0.1)'"
@@ -245,7 +256,7 @@
 
                     @forelse($users as $user)
                         @php $isSelected = $selectedUser && $selectedUser->id === $user->id; @endphp
-                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'user_role' => $userRole ?? null, 'dept_id' => $deptId, 'dept_tag_id' => $deptTagId ?? null, 'dept_status' => $deptStatus, 'dept_from' => $deptFrom, 'dept_to' => $deptTo, 'user_status' => $userStatus, 'modul_id' => $modulId, 'module_status' => $moduleStatus, 'module_from' => $moduleFrom, 'module_to' => $moduleTo, 'sort_by' => $sortBy, 'sort_dir' => $sortDir, 'access_sort_by' => $accessSortBy, 'access_sort_dir' => $accessSortDir])) }}"
+                        <a href="{{ route('access.index', array_filter(['user_id' => $user->id, 'search' => $search, 'user_role' => $userRole ?? null, 'dept_id' => $deptId, 'dept_tag_id' => $deptTagId ?? null, 'dept_status' => $deptStatus, 'dept_from' => $deptFrom, 'dept_to' => $deptTo, 'user_status' => $role !== 'support' ? $userStatus : null, 'modul_id' => $modulId, 'modul_tag_id' => $modulTagId ?? null, 'module_status' => $moduleStatus, 'module_from' => $moduleFrom, 'module_to' => $moduleTo, 'sort_by' => $sortBy, 'sort_dir' => $sortDir, 'access_sort_by' => $accessSortBy, 'access_sort_dir' => $accessSortDir])) }}"
                            style="display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.04); text-decoration: none; background: {{ $isSelected ? 'rgba(99,102,241,0.1)' : 'transparent' }}; transition: background 0.12s;"
                            class="user-row {{ $isSelected ? 'selected' : '' }}">
                             <div style="width: 34px; height: 34px; border-radius: 50%; background: {{ $isSelected ? 'var(--primary)' : 'rgba(99,102,241,0.18)' }}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; color: {{ $isSelected ? 'white' : 'var(--primary)' }}; flex-shrink: 0;">
@@ -288,7 +299,7 @@
                         </a>
                     @empty
                         <div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
-                            @if($search || ($userRole ?? '') || $deptId || ($deptTagId ?? '') || $deptStatus || $deptFrom || $deptTo || $userStatus || $modulId || $moduleStatus || $moduleFrom || $moduleTo)
+                            @if($search || ($userRole ?? '') || $deptId || ($deptTagId ?? '') || $deptStatus || $deptFrom || $deptTo || ($role !== 'support' && $userStatus) || $modulId || ($modulTagId ?? '') || $moduleStatus || $moduleFrom || $moduleTo)
                                 Brak wyników dla podanych filtrów.
                             @else
                                 Brak użytkowników.
@@ -359,7 +370,7 @@
                                    style="color: #10b981; font-size: 0.82rem; font-weight: 600; text-decoration: none; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); padding: 0.35rem 0.8rem; border-radius: 6px; white-space: nowrap;">
                                     📄 PDF użytkownika
                                 </a>
-                                @if($role === 'admin' || !empty($supportCanManage))
+                                @if($role === 'admin' || !empty($supportCanManageSelectedUser))
                                     <a href="{{ route('access.create', ['user_id' => $selectedUser->id]) }}"
                                        style="color: var(--primary); font-size: 0.82rem; text-decoration: none; background: rgba(99,102,241,0.1); padding: 0.35rem 0.8rem; border-radius: 6px; white-space: nowrap;">
                                         + Dodaj uprawnienie
@@ -498,6 +509,11 @@
                                                     <div class="submodule-label-area">
                                                         <div class="submodule-label" title="{{ $childName === '__root__' ? $rootName : $childName }} — {{ $access->operacja->nazwa ?? '—' }}">
                                                             {{ $childName === '__root__' ? $rootName : $childName }}
+                                                            @if($access->modul && $access->modul->tags && $access->modul->tags->isNotEmpty())
+                                                                @foreach($access->modul->tags as $mTag)
+                                                                    <span style="background: rgba(99, 102, 241, 0.12); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.25); padding: 0.05rem 0.4rem; border-radius: 999px; font-size: 0.65rem; font-weight: 600; margin-left: 0.25rem; white-space: nowrap;">#{{ $mTag->name }}</span>
+                                                                @endforeach
+                                                            @endif
                                                         </div>
                                                         @php
                                                             $matchingDepts = $access->getMatchingDepartments($selectedUser);
@@ -537,7 +553,7 @@
                                                     </div>
                                                     <div class="submodule-action-area">
                                                         <a href="#" class="action-link" onclick="openMoreInfo({{ $access->user_id }}, {{ $access->p_modul_id }}, {{ $access->p_operacje_id }}, '{{ ($childName === '__root__' ? $rootName : $childName) . ' — ' . ($access->operacja->nazwa ?? '') }}', {{ $access->id }}); return false;">więcej info</a>
-                                                        @if($role === 'admin' || !empty($supportCanManage))
+                                                        @if($role === 'admin' || !empty($supportCanManageSelectedUser))
                                                             <a href="{{ route('access.edit', $access->id) }}" title="Edytuj uprawnienie" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.15rem; transition: color 0.12s; display: inline-flex;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">✏️</a>
                                                             
                                                             <form action="{{ route('access.destroy', $access->id) }}" method="POST" style="margin: 0; display: inline-flex; align-items: center;" onsubmit="return confirm('Usunąć to uprawnienie?');">
@@ -567,7 +583,7 @@
                                     Brak przypisanych uprawnień
                                 @endif
                             </div>
-                            @if($role === 'admin' || !empty($supportCanManage))
+                            @if($role === 'admin' || !empty($supportCanManageSelectedUser))
                                 <a href="{{ route('access.create', ['user_id' => $selectedUser->id]) }}"
                                    style="display: inline-block; margin-top: 0.75rem; color: var(--primary); font-size: 0.82rem; text-decoration: none; background: rgba(99,102,241,0.1); padding: 0.35rem 0.8rem; border-radius: 6px;">
                                     + Dodaj pierwsze uprawnienie

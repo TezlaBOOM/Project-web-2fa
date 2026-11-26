@@ -416,4 +416,176 @@ class SupportRoleTest extends TestCase
             'p_operacje_id' => $op->id,
         ])->assertStatus(403);
     }
+
+    public function test_support_sees_only_active_employees(): void
+    {
+        $data = $this->setupSupportScenario();
+        $support = $data['support'];
+        $deptAllowed = $data['deptAllowed'];
+
+        $inactiveUser = User::factory()->create([
+            'name' => 'Pracownik Nieaktywny',
+            'email' => 'nieaktywny@test.pl',
+            'role' => 'user',
+            'is_active' => false,
+        ]);
+        $inactiveUser->departments()->attach($deptAllowed->ID_Departament);
+
+        $inactiveAccess = PAccess::create([
+            'user_id' => $inactiveUser->id,
+            'p_modul_id' => $data['modA']->id,
+            'p_operacje_id' => $data['opRead']->id,
+        ]);
+
+        // Users index hides inactive user even if status=inactive is requested
+        $this->actingAs($support)->get(route('users.index'))
+            ->assertStatus(200)
+            ->assertSee('Pracownik Wspierany')
+            ->assertDontSee('Pracownik Nieaktywny');
+
+        $this->actingAs($support)->get(route('users.index', ['status' => 'inactive']))
+            ->assertStatus(200)
+            ->assertDontSee('Pracownik Nieaktywny');
+
+        // Access index hides inactive user even if user_status=inactive is requested
+        $this->actingAs($support)->get(route('access.index'))
+            ->assertStatus(200)
+            ->assertSee('Pracownik Wspierany')
+            ->assertDontSee('Pracownik Nieaktywny');
+
+        $this->actingAs($support)->get(route('access.index', ['user_status' => 'inactive']))
+            ->assertStatus(200)
+            ->assertDontSee('Pracownik Nieaktywny');
+
+        // Create form dropdown hides inactive user
+        $this->actingAs($support)->get(route('access.create'))
+            ->assertStatus(200)
+            ->assertSee('Pracownik Wspierany')
+            ->assertDontSee('Pracownik Nieaktywny');
+
+        // Direct access to inactive user is forbidden (403)
+        $this->actingAs($support)->get(route('users.show', $inactiveUser->id))->assertStatus(403);
+        $this->actingAs($support)->get(route('users.permissions', $inactiveUser->id))->assertStatus(403);
+        $this->actingAs($support)->get(route('access.index', ['user_id' => $inactiveUser->id]))->assertStatus(403);
+        $this->actingAs($support)->get(route('access.create', ['user_id' => $inactiveUser->id]))->assertStatus(403);
+        $this->actingAs($support)->post(route('access.store'), [
+            'user_id' => $inactiveUser->id,
+            'p_modul_id' => $data['modA']->id,
+            'p_operacje_id' => $data['opRead']->id,
+        ])->assertStatus(403);
+        $this->actingAs($support)->get(route('access.edit', $inactiveAccess->id))->assertStatus(403);
+        $this->actingAs($support)->put(route('access.update', $inactiveAccess->id), [
+            'user_id' => $inactiveUser->id,
+            'p_modul_id' => $data['modA']->id,
+            'p_operacje_id' => $data['opRead']->id,
+        ])->assertStatus(403);
+        $this->actingAs($support)->delete(route('access.destroy', $inactiveAccess->id))->assertStatus(403);
+        $this->actingAs($support)->get(route('access.history', [
+            'user_id' => $inactiveUser->id,
+            'p_modul_id' => $data['modA']->id,
+            'p_operacje_id' => $data['opRead']->id,
+        ]))->assertStatus(403);
+    }
+
+    public function test_supports_cannot_grant_edit_or_revoke_permissions_for_each_other(): void
+    {
+        $data = $this->setupSupportScenario();
+        $support1 = $data['support'];
+        $deptAllowed = $data['deptAllowed'];
+
+        $support2 = User::factory()->create([
+            'name' => 'Drugi Support',
+            'email' => 'support2@test.pl',
+            'role' => 'support',
+            'is_active' => true,
+        ]);
+        $support2->departments()->attach($deptAllowed->ID_Departament);
+
+        $support2Access = PAccess::create([
+            'user_id' => $support2->id,
+            'p_modul_id' => $data['modA']->id,
+            'p_operacje_id' => $data['opRead']->id,
+        ]);
+
+        // Support2 should not appear in support1's access.create user dropdown
+        $this->actingAs($support1)->get(route('access.create'))
+            ->assertStatus(200)
+            ->assertSee('Pracownik Wspierany')
+            ->assertDontSee('Drugi Support');
+
+        // Support1 can view support2 in read-only mode on access.index, without add/edit/delete buttons
+        $viewRes = $this->actingAs($support1)->get(route('access.index', ['user_id' => $support2->id]));
+        $viewRes->assertStatus(200);
+        $viewRes->assertSee('Drugi Support');
+        $viewRes->assertDontSee(route('access.edit', $support2Access->id));
+        $viewRes->assertDontSee(route('access.destroy', $support2Access->id));
+
+        // Support1 cannot create, store, edit, update, or delete permissions for support2
+        $this->actingAs($support1)->get(route('access.create', ['user_id' => $support2->id]))->assertStatus(403);
+        $this->actingAs($support1)->post(route('access.store'), [
+            'user_id' => $support2->id,
+            'p_modul_id' => $data['modB']->id,
+            'p_operacje_id' => $data['opWrite']->id,
+        ])->assertStatus(403);
+        $this->actingAs($support1)->get(route('access.edit', $support2Access->id))->assertStatus(403);
+        $this->actingAs($support1)->put(route('access.update', $support2Access->id), [
+            'user_id' => $support2->id,
+            'p_modul_id' => $data['modA']->id,
+            'p_operacje_id' => $data['opRead']->id,
+        ])->assertStatus(403);
+        $this->actingAs($support1)->delete(route('access.destroy', $support2Access->id))->assertStatus(403);
+
+        // Support1 cannot reassign a regular user's access to support2
+        $regularAccess = PAccess::create([
+            'user_id' => $data['targetUser']->id,
+            'p_modul_id' => $data['modA']->id,
+            'p_operacje_id' => $data['opRead']->id,
+        ]);
+        $this->actingAs($support1)->put(route('access.update', $regularAccess->id), [
+            'user_id' => $support2->id,
+            'p_modul_id' => $data['modA']->id,
+            'p_operacje_id' => $data['opRead']->id,
+        ])->assertStatus(403);
+    }
+
+    public function test_support_cannot_revoke_edit_or_grant_own_permissions(): void
+    {
+        $data = $this->setupSupportScenario();
+        $support = $data['support'];
+
+        $ownAccess = PAccess::where('user_id', $support->id)
+            ->where('p_modul_id', $data['modA']->id)
+            ->where('p_operacje_id', $data['opRead']->id)
+            ->firstOrFail();
+
+        // Support cannot see self in create dropdown
+        $this->actingAs($support)->get(route('access.create'))
+            ->assertStatus(200)
+            ->assertDontSee($support->email);
+
+        // Support can view own accesses in read-only mode on access.index without edit/delete actions
+        $viewRes = $this->actingAs($support)->get(route('access.index', ['user_id' => $support->id]));
+        $viewRes->assertStatus(200);
+        $viewRes->assertSee('Support Agent');
+        $viewRes->assertDontSee(route('access.edit', $ownAccess->id));
+        $viewRes->assertDontSee(route('access.destroy', $ownAccess->id));
+
+        // Support cannot revoke, edit, update, or grant own permissions
+        $this->actingAs($support)->delete(route('access.destroy', $ownAccess->id))->assertStatus(403);
+        $this->assertDatabaseHas('P_access', ['id' => $ownAccess->id]);
+
+        $this->actingAs($support)->get(route('access.edit', $ownAccess->id))->assertStatus(403);
+        $this->actingAs($support)->put(route('access.update', $ownAccess->id), [
+            'user_id' => $support->id,
+            'p_modul_id' => $data['modA']->id,
+            'p_operacje_id' => $data['opRead']->id,
+        ])->assertStatus(403);
+
+        $this->actingAs($support)->get(route('access.create', ['user_id' => $support->id]))->assertStatus(403);
+        $this->actingAs($support)->post(route('access.store'), [
+            'user_id' => $support->id,
+            'p_modul_id' => $data['modA']->id,
+            'p_operacje_id' => $data['opRead']->id,
+        ])->assertStatus(403);
+    }
 }

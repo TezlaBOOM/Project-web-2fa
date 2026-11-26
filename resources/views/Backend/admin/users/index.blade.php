@@ -65,11 +65,13 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.9rem; align-items: start;">
                         {{-- Grupa 1: Konto i rola --}}
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem;">
-                            <select name="status" id="status-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;" onchange="document.getElementById('search-form').submit()">
-                                <option value="">Wszystkie statusy konta</option>
-                                <option value="active" {{ ($status ?? '') === 'active' || ($status ?? '') === '1' ? 'selected' : '' }}>Tylko aktywni</option>
-                                <option value="inactive" {{ ($status ?? '') === 'inactive' || ($status ?? '') === '0' ? 'selected' : '' }}>Tylko nieaktywni</option>
-                            </select>
+                            @if(auth()->user()->role !== 'support')
+                                <select name="status" id="status-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;" onchange="document.getElementById('search-form').submit()">
+                                    <option value="">Wszystkie statusy konta</option>
+                                    <option value="active" {{ ($status ?? '') === 'active' || ($status ?? '') === '1' ? 'selected' : '' }}>Tylko aktywni</option>
+                                    <option value="inactive" {{ ($status ?? '') === 'inactive' || ($status ?? '') === '0' ? 'selected' : '' }}>Tylko nieaktywni</option>
+                                </select>
+                            @endif
 
                             <select name="role" id="role-filter" class="form-control" style="font-size: 0.84rem; height: 43px; padding: 0 0.75rem;" onchange="document.getElementById('search-form').submit()">
                                 <option value="">Wszystkie role</option>

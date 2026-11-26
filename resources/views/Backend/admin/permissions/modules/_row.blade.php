@@ -15,6 +15,20 @@
         @endif
         {{ $module->nazwa }}
     </td>
+    <td style="padding: 0.75rem;">
+        @if($module->tags && $module->tags->isNotEmpty())
+            <div style="display: flex; flex-wrap: wrap; gap: 0.3rem;">
+                @foreach($module->tags as $tag)
+                    <a href="{{ route('modules.index', ['tag_id' => $tag->id]) }}"
+                       style="background: rgba(99, 102, 241, 0.12); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.25); padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; text-decoration: none; white-space: nowrap;">
+                        #{{ $tag->name }}
+                    </a>
+                @endforeach
+            </div>
+        @else
+            <span style="color: var(--text-muted); font-size: 0.85rem;">—</span>
+        @endif
+    </td>
     <td style="padding: 0.75rem; text-align: right; white-space: nowrap;">
         @if($depth < 4)
             <a href="{{ route('modules.create', ['parent_id' => $module->id]) }}" style="color: var(--success); text-decoration: none; margin-right: 1rem; font-size: 0.85rem;" title="Dodaj podkategorię pod tym modułem">+ Podkategoria</a>

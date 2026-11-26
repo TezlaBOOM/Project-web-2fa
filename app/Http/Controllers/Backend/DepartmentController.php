@@ -54,7 +54,7 @@ class DepartmentController extends Controller
         }
 
         $departments = $query->orderBy($sortBy, $sortDir)->get();
-        $tags = Tag::orderBy('name')->get();
+        $tags = Tag::whereHas('departments')->orderBy('name')->get();
 
         return view('Backend.admin.departments.index', compact('departments', 'sortBy', 'sortDir', 'tags', 'tagId', 'search'));
     }

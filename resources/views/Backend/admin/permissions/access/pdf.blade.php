@@ -214,8 +214,14 @@
                 <td class="filter-value {{ $filterSummary['module_status_active'] ? 'filter-active' : '' }}">
                     {{ $filterSummary['module_status'] }}
                 </td>
+                <td class="filter-label">Tag modułu:</td>
+                <td class="filter-value {{ !empty($filterSummary['module_tag_active']) ? 'filter-active' : '' }}">
+                    {{ $filterSummary['module_tag'] ?? 'Wszystkie tagi' }}
+                </td>
+            </tr>
+            <tr>
                 <td class="filter-label">Okres uprawnienia:</td>
-                <td class="filter-value {{ $filterSummary['module_dates_active'] ? 'filter-active' : '' }}">
+                <td class="filter-value {{ $filterSummary['module_dates_active'] ? 'filter-active' : '' }}" colspan="3">
                     {{ $filterSummary['module_dates'] }}
                 </td>
             </tr>

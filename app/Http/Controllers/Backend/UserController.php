@@ -42,6 +42,7 @@ class UserController extends Controller
             $scopedDeptIds = auth()->user()->departments->pluck('ID_Departament');
         } elseif ($role === 'support') {
             $scopedDeptIds = auth()->user()->activeDepartmentIds();
+            $query->where('is_active', true);
         }
 
         if ($scopedDeptIds !== null) {
@@ -60,7 +61,7 @@ class UserController extends Controller
             $departments = Departament::with('tags')->orderBy('Nazwa')->get();
         }
 
-        $tags = Tag::orderBy('name')->get();
+        $tags = Tag::whereHas('departments')->orderBy('name')->get();
 
         if ($search) {
             $query->where(function($q) use ($search) {
@@ -394,7 +395,7 @@ class UserController extends Controller
                 abort(403, 'Brak dostępu do tego użytkownika.');
             }
         } elseif ($role === 'support') {
-            if (!auth()->user()->canSupportManageUser($user)) {
+            if (!auth()->user()->canSupportViewUser($user)) {
                 abort(403, 'Brak dostępu do tego użytkownika.');
             }
         }
@@ -428,7 +429,7 @@ class UserController extends Controller
                 abort(403, 'Brak dostępu do tego użytkownika.');
             }
         } elseif ($role === 'support') {
-            if (!auth()->user()->canSupportManageUser($user)) {
+            if (!auth()->user()->canSupportViewUser($user)) {
                 abort(403, 'Brak dostępu do tego użytkownika.');
             }
         }

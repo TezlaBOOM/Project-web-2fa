@@ -192,11 +192,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Check whether this support user can manage the given target user (shared active department).
+     * Check whether this support user can view the given target user (active user in shared active department).
      */
-    public function canSupportManageUser(User $targetUser): bool
+    public function canSupportViewUser(User $targetUser): bool
     {
-        if ($this->role !== 'support') {
+        if ($this->role !== 'support' || !$targetUser->is_active) {
             return false;
         }
 
@@ -208,6 +208,23 @@ class User extends Authenticatable
         return $targetUser->departments()
             ->whereIn('Departament.ID_Departament', $deptIds)
             ->exists();
+    }
+
+    /**
+     * Check whether this support user can manage permissions for the given target user.
+     * Support cannot manage inactive users, themselves, or other support users.
+     */
+    public function canSupportManageUser(User $targetUser): bool
+    {
+        if (!$this->canSupportViewUser($targetUser)) {
+            return false;
+        }
+
+        if ($targetUser->id === $this->id || $targetUser->role === 'support') {
+            return false;
+        }
+
+        return true;
     }
 
     /**

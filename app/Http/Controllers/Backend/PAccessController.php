@@ -32,6 +32,7 @@ class PAccessController extends Controller
         $deptFrom   = $request->get('dept_from');
         $deptTo     = $request->get('dept_to');
         $modulId    = $request->get('modul_id');
+        $modulTagId = $request->get('modul_tag_id');
 
         $sortBy = $request->get('sort_by', 'name');
         $sortDir = $request->get('sort_dir', 'asc');
@@ -46,19 +47,19 @@ class PAccessController extends Controller
         $supportPairs = ($role === 'support') ? auth()->user()->supportAllowedAccessPairs() : null;
 
         if ($role === 'support') {
-            $baseQuery = User::withCount([
+            $baseQuery = User::where('is_active', true)->withCount([
                 'pAccesses' => function ($q) use ($supportPairs) {
                     User::applySupportPairsFilter($q, $supportPairs);
                 },
             ])->with([
                 'departments.tags',
                 'pAccesses' => function ($q) use ($supportPairs) {
-                    User::applySupportPairsFilter($q, $supportPairs)->with(['modul.parent', 'operacja']);
+                    User::applySupportPairsFilter($q, $supportPairs)->with(['modul.parent', 'modul.tags', 'operacja']);
                 },
             ]);
         } else {
             $baseQuery = User::withCount('pAccesses')
-                ->with(['departments.tags', 'pAccesses.modul.parent', 'pAccesses.operacja']);
+                ->with(['departments.tags', 'pAccesses.modul.parent', 'pAccesses.modul.tags', 'pAccesses.operacja']);
         }
 
         $scopedDeptIds = null;
@@ -84,7 +85,15 @@ class PAccessController extends Controller
             $departments = Departament::with('tags')->orderBy('Nazwa')->get();
         }
 
-        $tags = Tag::orderBy('name')->get();
+        $tags = Tag::whereHas('departments')->orderBy('name')->get();
+        if ($role === 'support') {
+            $allowedModuleIdsForTags = $supportPairs->pluck('p_modul_id')->unique()->values();
+            $moduleTags = Tag::whereHas('modules', function($q) use ($allowedModuleIdsForTags) {
+                $q->whereIn('P_modul.id', $allowedModuleIdsForTags);
+            })->orderBy('name')->get();
+        } else {
+            $moduleTags = Tag::whereHas('modules')->orderBy('name')->get();
+        }
 
         if ($search) {
             $baseQuery->where(function($q) use ($search) {
@@ -197,7 +206,7 @@ class PAccessController extends Controller
         $moduleFrom   = $request->get('module_from');
         $moduleTo     = $request->get('module_to');
 
-        // Filtrowanie po konkretnym module (oraz jego podmodułach)
+        // Filtrowanie po konkretnym module (oraz jego podmodułach) i/lub tagu modułu
         $targetModuleIds = [];
         $selectedModule = null;
         if ($modulId) {
@@ -208,11 +217,16 @@ class PAccessController extends Controller
                 $targetModuleIds = [$modulId];
             }
 
-            $baseQuery->whereHas('pAccesses', function($q) use ($targetModuleIds, $today, $moduleStatus, $moduleFrom, $moduleTo, $role, $supportPairs) {
+            $baseQuery->whereHas('pAccesses', function($q) use ($targetModuleIds, $modulTagId, $today, $moduleStatus, $moduleFrom, $moduleTo, $role, $supportPairs) {
                 if ($role === 'support') {
                     User::applySupportPairsFilter($q, $supportPairs);
                 }
                 $q->whereIn('p_modul_id', $targetModuleIds);
+                if ($modulTagId) {
+                    $q->whereHas('modul.tags', function($tq) use ($modulTagId) {
+                        $tq->where('tags.id', $modulTagId);
+                    });
+                }
                 if ($moduleStatus === 'active') {
                     $q->where(function($sq) use ($today) {
                         $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $today);
@@ -235,7 +249,7 @@ class PAccessController extends Controller
             });
         }
 
-        // Filtrowanie użytkowników na podstawie ogólnego statusu i dat modułów (gdy modul_id nie został wybrany lub dla statusu 'none')
+        // Filtrowanie użytkowników na podstawie ogólnego statusu, tagu modułu i dat modułów (gdy modul_id nie został wybrany lub dla statusu 'none')
         if ($moduleStatus === 'none') {
             if ($role === 'support') {
                 $baseQuery->whereDoesntHave('pAccesses', function($q) use ($supportPairs) {
@@ -245,30 +259,22 @@ class PAccessController extends Controller
                 $baseQuery->doesntHave('pAccesses');
             }
         } elseif (!$modulId) {
-            if ($moduleStatus === 'active') {
-                $baseQuery->whereHas('pAccesses', function($q) use ($today, $role, $supportPairs) {
+            if ($modulTagId) {
+                $baseQuery->whereHas('pAccesses', function($q) use ($modulTagId, $today, $moduleStatus, $moduleFrom, $moduleTo, $role, $supportPairs) {
                     if ($role === 'support') {
                         User::applySupportPairsFilter($q, $supportPairs);
                     }
-                    $q->where(function($sq) use ($today) {
-                        $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $today);
-                    })->where(function($sq) use ($today) {
-                        $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $today);
+                    $q->whereHas('modul.tags', function($tq) use ($modulTagId) {
+                        $tq->where('tags.id', $modulTagId);
                     });
-                });
-            } elseif ($moduleStatus === 'expired') {
-                $baseQuery->whereHas('pAccesses', function($q) use ($today, $role, $supportPairs) {
-                    if ($role === 'support') {
-                        User::applySupportPairsFilter($q, $supportPairs);
-                    }
-                    $q->whereNotNull('valid_to')->where('valid_to', '<', $today);
-                });
-            }
-
-            if ($moduleFrom || $moduleTo) {
-                $baseQuery->whereHas('pAccesses', function($q) use ($moduleFrom, $moduleTo, $role, $supportPairs) {
-                    if ($role === 'support') {
-                        User::applySupportPairsFilter($q, $supportPairs);
+                    if ($moduleStatus === 'active') {
+                        $q->where(function($sq) use ($today) {
+                            $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $today);
+                        })->where(function($sq) use ($today) {
+                            $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $today);
+                        });
+                    } elseif ($moduleStatus === 'expired') {
+                        $q->whereNotNull('valid_to')->where('valid_to', '<', $today);
                     }
                     if ($moduleFrom) {
                         $q->where(function($sq) use ($moduleFrom) {
@@ -281,21 +287,63 @@ class PAccessController extends Controller
                         });
                     }
                 });
+            } else {
+                if ($moduleStatus === 'active') {
+                    $baseQuery->whereHas('pAccesses', function($q) use ($today, $role, $supportPairs) {
+                        if ($role === 'support') {
+                            User::applySupportPairsFilter($q, $supportPairs);
+                        }
+                        $q->where(function($sq) use ($today) {
+                            $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $today);
+                        })->where(function($sq) use ($today) {
+                            $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $today);
+                        });
+                    });
+                } elseif ($moduleStatus === 'expired') {
+                    $baseQuery->whereHas('pAccesses', function($q) use ($today, $role, $supportPairs) {
+                        if ($role === 'support') {
+                            User::applySupportPairsFilter($q, $supportPairs);
+                        }
+                        $q->whereNotNull('valid_to')->where('valid_to', '<', $today);
+                    });
+                }
+
+                if ($moduleFrom || $moduleTo) {
+                    $baseQuery->whereHas('pAccesses', function($q) use ($moduleFrom, $moduleTo, $role, $supportPairs) {
+                        if ($role === 'support') {
+                            User::applySupportPairsFilter($q, $supportPairs);
+                        }
+                        if ($moduleFrom) {
+                            $q->where(function($sq) use ($moduleFrom) {
+                                $sq->whereNull('valid_to')->orWhere('valid_to', '>=', $moduleFrom);
+                            });
+                        }
+                        if ($moduleTo) {
+                            $q->where(function($sq) use ($moduleTo) {
+                                $sq->whereNull('valid_from')->orWhere('valid_from', '<=', $moduleTo);
+                            });
+                        }
+                    });
+                }
             }
         }
 
         $userStatus = $request->get('user_status', $request->get('status', ''));
-        if ($userStatus === 'active' || $userStatus === '1') {
-            $baseQuery->where('is_active', true);
-        } elseif ($userStatus === 'inactive' || $userStatus === '0') {
-            $baseQuery->where('is_active', false);
+        if ($role !== 'support') {
+            if ($userStatus === 'active' || $userStatus === '1') {
+                $baseQuery->where('is_active', true);
+            } elseif ($userStatus === 'inactive' || $userStatus === '0') {
+                $baseQuery->where('is_active', false);
+            }
+        } else {
+            $userStatus = 'active';
         }
 
         return compact(
-            'baseQuery', 'role', 'search', 'userId', 'userRole', 'departments', 'tags',
+            'baseQuery', 'role', 'search', 'userId', 'userRole', 'departments', 'tags', 'moduleTags',
             'deptId', 'deptTagId', 'deptStatus', 'deptFrom', 'deptTo', 'sortBy', 'sortDir',
             'userStatus', 'accessSortBy', 'accessSortDir', 'moduleStatus', 'moduleFrom',
-            'moduleTo', 'modulId', 'targetModuleIds', 'selectedModule', 'today',
+            'moduleTo', 'modulId', 'modulTagId', 'targetModuleIds', 'selectedModule', 'today',
             'supportPairs', 'scopedDeptIds'
         );
     }
@@ -315,12 +363,12 @@ class PAccessController extends Controller
                         abort(403, 'Brak dostępu do tego użytkownika.');
                     }
                 } elseif ($role === 'support') {
-                    if (!auth()->user()->canSupportManageUser($selectedUser)) {
+                    if (!auth()->user()->canSupportViewUser($selectedUser)) {
                         abort(403, 'Brak dostępu do tego użytkownika.');
                     }
                 }
 
-                $accessQuery = PAccess::with(['modul.parent', 'operacja'])
+                $accessQuery = PAccess::with(['modul.parent', 'modul.tags', 'operacja'])
                     ->where('user_id', $userId)
                     ->select('P_access.*')
                     ->join('P_modul', 'P_access.p_modul_id', '=', 'P_modul.id')
@@ -328,6 +376,12 @@ class PAccessController extends Controller
 
                 if ($role === 'support') {
                     User::applySupportPairsFilter($accessQuery, $supportPairs);
+                }
+
+                if ($modulTagId) {
+                    $accessQuery->whereHas('modul.tags', function($tq) use ($modulTagId) {
+                        $tq->where('tags.id', $modulTagId);
+                    });
                 }
 
                 if ($moduleStatus === 'active') {
@@ -379,14 +433,15 @@ class PAccessController extends Controller
             $modules = PModul::whereNull('parent_id')->with('children.children')->orderBy('nazwa')->get();
         }
         $supportCanManage = ($role === 'support' && $supportPairs->isNotEmpty());
+        $supportCanManageSelectedUser = ($supportCanManage && $selectedUser && auth()->user()->canSupportManageUser($selectedUser));
 
         $users = $baseQuery->orderBy($sortBy, $sortDir)->paginate(20)->withQueryString();
 
         return view('Backend.admin.permissions.access.index', compact(
-            'users', 'role', 'supportCanManage', 'supportModules', 'search', 'selectedUser', 'selectedAccesses', 'userId',
-            'userRole', 'departments', 'tags', 'deptId', 'deptTagId', 'deptStatus', 'deptFrom', 'deptTo',
+            'users', 'role', 'supportCanManage', 'supportCanManageSelectedUser', 'supportModules', 'search', 'selectedUser', 'selectedAccesses', 'userId',
+            'userRole', 'departments', 'tags', 'moduleTags', 'deptId', 'deptTagId', 'deptStatus', 'deptFrom', 'deptTo',
             'sortBy', 'sortDir', 'userStatus', 'accessSortBy', 'accessSortDir', 'moduleStatus',
-            'moduleFrom', 'moduleTo', 'modules', 'modulId'
+            'moduleFrom', 'moduleTo', 'modules', 'modulId', 'modulTagId'
         ));
     }
 
@@ -408,8 +463,11 @@ class PAccessController extends Controller
                 continue;
             }
 
-            $filtered = $user->pAccesses->filter(function ($access) use ($modulId, $targetModuleIds, $moduleStatus, $moduleFrom, $moduleTo, $today) {
+            $filtered = $user->pAccesses->filter(function ($access) use ($modulId, $modulTagId, $targetModuleIds, $moduleStatus, $moduleFrom, $moduleTo, $today) {
                 if ($modulId && !in_array($access->p_modul_id, $targetModuleIds)) {
+                    return false;
+                }
+                if ($modulTagId && (!$access->modul || !$access->modul->tags->contains('id', (int) $modulTagId))) {
                     return false;
                 }
 
@@ -461,6 +519,7 @@ class PAccessController extends Controller
 
         $deptName = $deptId ? ($departments->firstWhere('ID_Departament', $deptId)?->Nazwa ?? Departament::find($deptId)?->Nazwa ?? 'Wybrany wydział') : null;
         $deptTagName = $deptTagId ? ($tags->firstWhere('id', $deptTagId)?->name ?? Tag::find($deptTagId)?->name ?? 'Wybrany tag') : null;
+        $moduleTagName = $modulTagId ? ($moduleTags->firstWhere('id', $modulTagId)?->name ?? Tag::find($modulTagId)?->name ?? 'Wybrany tag') : null;
         $moduleName = $selectedModule ? $this->getModuleFullPath($selectedModule) : null;
 
         $filterSummary = [
@@ -480,6 +539,8 @@ class PAccessController extends Controller
             'dept_dates_active'    => (bool) ($deptFrom || $deptTo),
             'module'               => $moduleName ?: 'Wszystkie moduły',
             'module_active'        => (bool) $modulId,
+            'module_tag'           => $moduleTagName ? ('#' . $moduleTagName) : 'Wszystkie tagi',
+            'module_tag_active'    => (bool) $modulTagId,
             'module_status'        => $moduleStatus === 'active' ? 'Tylko aktywny moduł' : ($moduleStatus === 'expired' ? 'Z wygasłym modułem' : ($moduleStatus === 'none' ? 'Bez modułów' : 'Wszystkie statusy')),
             'module_status_active' => (bool) $moduleStatus,
             'module_dates'         => ($moduleFrom || $moduleTo) ? ('od: ' . ($moduleFrom ?: '∞') . ' do: ' . ($moduleTo ?: '∞')) : 'Dowolny okres',
@@ -528,9 +589,12 @@ class PAccessController extends Controller
             if ($supportDeptIds->isEmpty()) {
                 $usersQuery->whereRaw('1 = 0');
             } else {
-                $usersQuery->whereHas('departments', function($q) use ($supportDeptIds) {
-                    $q->whereIn('Departament.ID_Departament', $supportDeptIds);
-                });
+                $usersQuery->where('is_active', true)
+                    ->where('role', '!=', 'support')
+                    ->where('id', '!=', auth()->id())
+                    ->whereHas('departments', function($q) use ($supportDeptIds) {
+                        $q->whereIn('Departament.ID_Departament', $supportDeptIds);
+                    });
             }
 
             $departments = Departament::whereIn('ID_Departament', $supportDeptIds)->orderBy('Nazwa')->get();
@@ -629,9 +693,12 @@ class PAccessController extends Controller
             $supportDeptIds = auth()->user()->activeDepartmentIds();
             $supportPairs = auth()->user()->supportAllowedAccessPairs();
 
-            $users = User::whereHas('departments', function($q) use ($supportDeptIds) {
-                $q->whereIn('Departament.ID_Departament', $supportDeptIds);
-            })->orderBy('name')->get();
+            $users = User::where('is_active', true)
+                ->where('role', '!=', 'support')
+                ->where('id', '!=', auth()->id())
+                ->whereHas('departments', function($q) use ($supportDeptIds) {
+                    $q->whereIn('Departament.ID_Departament', $supportDeptIds);
+                })->orderBy('name')->get();
 
             $allowedModuleIds = $supportPairs->pluck('p_modul_id')->unique()->values();
             $allowedOpIds = $supportPairs->pluck('p_operacje_id')->unique()->values();
@@ -764,7 +831,7 @@ class PAccessController extends Controller
                 abort(403, 'Brak dostępu do tego użytkownika.');
             }
         } elseif ($role === 'support') {
-            if (!auth()->user()->canSupportManageUser($targetUser)
+            if (!auth()->user()->canSupportViewUser($targetUser)
                 || !auth()->user()->canSupportManagePair((int) $validated['p_modul_id'], (int) $validated['p_operacje_id'])) {
                 abort(403, 'Brak dostępu do historii tego uprawnienia.');
             }

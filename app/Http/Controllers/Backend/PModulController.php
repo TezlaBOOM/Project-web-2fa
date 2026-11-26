@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 use App\Models\PModul;
+use App\Models\Tag;
 use App\Models\UserActivity;
 
 class PModulController extends Controller
@@ -13,7 +14,8 @@ class PModulController extends Controller
     public function index(Request $request)
     {
         $this->authorizeAdmin();
-        $search = $request->get('search');
+        $search = trim((string) $request->get('search', ''));
+        $tagId = $request->get('tag_id');
         
         $sortBy = $request->get('sort_by', 'nazwa');
         $sortDir = $request->get('sort_dir', 'asc');
@@ -25,14 +27,31 @@ class PModulController extends Controller
             $sortDir = 'asc';
         }
 
-        if ($search) {
-            $modules = PModul::where('nazwa', 'like', "%{$search}%")->with('parent')->orderBy($sortBy, $sortDir)->get();
+        if ($search !== '' || !empty($tagId)) {
+            $query = PModul::with(['parent', 'tags']);
+
+            if ($search !== '') {
+                $query->where(function ($q) use ($search) {
+                    $q->where('nazwa', 'like', "%{$search}%")
+                      ->orWhereHas('tags', function ($tq) use ($search) {
+                          $tq->where('name', 'like', "%{$search}%");
+                      });
+                });
+            }
+
+            if (!empty($tagId)) {
+                $query->whereHas('tags', function ($tq) use ($tagId) {
+                    $tq->where('tags.id', $tagId);
+                });
+            }
+
+            $modules = $query->orderBy($sortBy, $sortDir)->get();
         } else {
-            $modules = PModul::whereNull('parent_id')->orderBy($sortBy, $sortDir)->get();
+            $modules = PModul::whereNull('parent_id')->with('tags')->orderBy($sortBy, $sortDir)->get();
             
             // Recursively sort children
             $sortRecursively = function($module) use (&$sortRecursively, $sortBy, $sortDir) {
-                $children = $module->children()->orderBy($sortBy, $sortDir)->get();
+                $children = $module->children()->with('tags')->orderBy($sortBy, $sortDir)->get();
                 $module->setRelation('children', $children);
                 foreach ($children as $child) {
                     $sortRecursively($child);
@@ -43,15 +62,19 @@ class PModulController extends Controller
                 $sortRecursively($module);
             }
         }
-        return view('Backend.admin.permissions.modules.index', compact('modules', 'search', 'sortBy', 'sortDir'));
+
+        $tags = Tag::whereHas('modules')->orderBy('name')->get();
+
+        return view('Backend.admin.permissions.modules.index', compact('modules', 'search', 'tagId', 'tags', 'sortBy', 'sortDir'));
     }
 
     public function create()
     {
         $this->authorizeAdmin();
         $allModules = PModul::whereNull('parent_id')->with('children')->orderBy('nazwa')->get();
+        $allTags = Tag::orderBy('name')->get();
         $parent_id = request('parent_id');
-        return view('Backend.admin.permissions.modules.create', compact('allModules', 'parent_id'));
+        return view('Backend.admin.permissions.modules.create', compact('allModules', 'allTags', 'parent_id'));
     }
 
     public function store(Request $request)
@@ -61,6 +84,7 @@ class PModulController extends Controller
         $validated = $request->validate([
             'nazwa' => 'required|string|max:255',
             'parent_id' => 'nullable|exists:P_modul,id',
+            'tags' => 'nullable|string|max:1000',
         ]);
 
         if (!empty($validated['parent_id'])) {
@@ -70,7 +94,11 @@ class PModulController extends Controller
             }
         }
 
-        $modul = PModul::create($validated);
+        $modul = PModul::create([
+            'nazwa' => $validated['nazwa'],
+            'parent_id' => $validated['parent_id'] ?? null,
+        ]);
+        $modul->syncTagsFromString($validated['tags'] ?? '');
         UserActivity::log('create_module', "Utworzono moduł: {$modul->nazwa}");
 
         return redirect()->route('modules.index')->with('success', 'Moduł został utworzony.');
@@ -79,8 +107,10 @@ class PModulController extends Controller
     public function edit(PModul $module)
     {
         $this->authorizeAdmin();
+        $module->load('tags');
         $allModules = PModul::whereNull('parent_id')->with('children')->orderBy('nazwa')->get();
-        return view('Backend.admin.permissions.modules.edit', compact('module', 'allModules'));
+        $allTags = Tag::orderBy('name')->get();
+        return view('Backend.admin.permissions.modules.edit', compact('module', 'allModules', 'allTags'));
     }
 
     public function update(Request $request, PModul $module)
@@ -90,6 +120,7 @@ class PModulController extends Controller
         $validated = $request->validate([
             'nazwa' => 'required|string|max:255',
             'parent_id' => 'nullable|exists:P_modul,id',
+            'tags' => 'nullable|string|max:1000',
         ]);
 
         if (!empty($validated['parent_id'])) {
@@ -103,7 +134,11 @@ class PModulController extends Controller
             }
         }
 
-        $module->update($validated);
+        $module->update([
+            'nazwa' => $validated['nazwa'],
+            'parent_id' => $validated['parent_id'] ?? null,
+        ]);
+        $module->syncTagsFromString($validated['tags'] ?? '');
         UserActivity::log('update_module', "Zaktualizowano moduł: {$module->nazwa}");
 
         return redirect()->route('modules.index')->with('success', 'Moduł został zaktualizowany.');

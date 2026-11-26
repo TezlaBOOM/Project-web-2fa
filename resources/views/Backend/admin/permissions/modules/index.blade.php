@@ -36,12 +36,24 @@
                 <div style="position: relative; flex: 1; min-width: 200px; max-width: 340px;">
                     <span style="position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.9rem;">🔍</span>
                     <input type="text" name="search" id="search-input" class="form-control"
-                           value="{{ $search ?? '' }}" placeholder="Szukaj modułów..."
+                           value="{{ $search ?? '' }}" placeholder="Szukaj modułów po nazwie lub tagu..."
                            style="padding-left: 2.2rem;" autocomplete="off">
                 </div>
 
+                {{-- Filtr tagów --}}
+                <div style="min-width: 200px;">
+                    <select name="tag_id" id="tag-filter" class="form-control" style="height: 43px; padding: 0 0.75rem;" onchange="document.getElementById('search-form').submit()">
+                        <option value="">Wszystkie tagi</option>
+                        @foreach($tags ?? [] as $tag)
+                            <option value="{{ $tag->id }}" {{ ($tagId ?? '') == $tag->id ? 'selected' : '' }}>
+                                #{{ $tag->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
                 {{-- Wyczyść --}}
-                @if(!empty($search))
+                @if(!empty($search) || !empty($tagId))
                     <a href="{{ route('modules.index') }}"
                        style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.5rem 0.85rem; background: rgba(255,255,255,0.05); border-radius: 6px; white-space: nowrap;">
                         ✕ Wyczyść
@@ -64,15 +76,30 @@
                                 @endif
                             </a>
                         </th>
+                        <th style="padding: 0.75rem;">Tagi</th>
                         <th style="padding: 0.75rem; text-align: right;">Akcje</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @if(!empty($search))
+                    @if(!empty($search) || !empty($tagId))
                         @forelse($modules as $module)
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                                 <td style="padding: 0.75rem; font-weight: 500;">
                                     {{ $module->full_path }}
+                                </td>
+                                <td style="padding: 0.75rem;">
+                                    @if($module->tags && $module->tags->isNotEmpty())
+                                        <div style="display: flex; flex-wrap: wrap; gap: 0.3rem;">
+                                            @foreach($module->tags as $tag)
+                                                <a href="{{ route('modules.index', array_filter(['tag_id' => $tag->id, 'search' => $search ?? null])) }}"
+                                                   style="background: rgba(99, 102, 241, 0.12); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.25); padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; text-decoration: none; white-space: nowrap;">
+                                                    #{{ $tag->name }}
+                                                </a>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <span style="color: var(--text-muted); font-size: 0.85rem;">—</span>
+                                    @endif
                                 </td>
                                 <td style="padding: 0.75rem; text-align: right; white-space: nowrap;">
                                     @if($module->getDepth() < 4)
@@ -88,7 +115,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="2" style="text-align: center; color: var(--text-muted); padding: 2rem 0;">Brak pasujących modułów.</td>
+                                <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2rem 0;">Brak pasujących modułów.</td>
                             </tr>
                         @endforelse
                     @else
@@ -96,7 +123,7 @@
                             @include('Backend.admin.permissions.modules._row', ['module' => $module, 'depth' => 0, 'ancestors' => []])
                         @empty
                             <tr>
-                                <td colspan="2" style="text-align: center; color: var(--text-muted); padding: 2rem 0;">Brak modułów.</td>
+                                <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2rem 0;">Brak modułów.</td>
                             </tr>
                         @endforelse
                     @endif
